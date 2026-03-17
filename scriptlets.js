@@ -1,17 +1,13 @@
 // ─── Adzooka — Scriptlets (MAIN world, document_start) ───────────────────────
-// Runs in the page's own JS context before any page script executes.
-// Kept minimal to avoid breaking sites. Network-level blocking (declarativeNetRequest)
-// handles the heavy lifting; these are targeted surgical overrides only.
-// ─────────────────────────────────────────────────────────────────────────────
-
 (function () {
   'use strict';
 
-  // Skip on Google-family domains — their page init depends on the real googletag/adsbygoogle.
-  // youtube.com, youtu.be, googleapis.com, etc. all break if we noop these globals.
-  const ON_GOOGLE = /\b(google|youtube|youtu|googleapis|googleusercontent|gstatic|ggpht)\.(com|be|[a-z]{2}|co\.[a-z]{2})$/.test(location.hostname);
+  // Domains where our overrides break the site — bail out immediately.
+  // Google/YouTube need real googletag. Spotify's SPA crashes on any noop.
+  const EXEMPT = /\b(google|youtube|youtu|googleapis|googleusercontent|gstatic|ggpht|spotify|scdn|spotifycdn)\.(com|be|net|[a-z]{2}|co\.[a-z]{2})$/.test(location.hostname);
+  if (EXEMPT) return;
 
-  // ── Ad domain set (for popup/open blocking only) ───────────────────────────
+  // ── Ad host check (used only for popup blocking) ───────────────────────────
   const AD_HOSTS = new Set([
     'doubleclick.net','googlesyndication.com','googleadservices.com',
     'adnxs.com','advertising.com','openx.net','rubiconproject.com',
@@ -27,7 +23,6 @@
     try {
       const h = new URL(url, location.href).hostname.toLowerCase();
       if (AD_HOSTS.has(h)) return true;
-      // Check parent domain (e.g. cdn.doubleclick.net)
       const parts = h.split('.');
       for (let i = 1; i < parts.length - 1; i++) {
         if (AD_HOSTS.has(parts.slice(i).join('.'))) return true;
@@ -37,7 +32,6 @@
   }
 
   // ── 1. window.open — block popups to ad domains ────────────────────────────
-  // Also blocks chrome-less popup windows (no toolbar/menubar = ad pattern).
   const _open = window.open;
   window.open = function (url, target, features) {
     const u = String(url || '');
@@ -46,91 +40,78 @@
     return _open.apply(window, arguments);
   };
 
-  // ── 2. googletag noop ─────────────────────────────────────────────────────
-  // Neutralises Google Publisher Tag on third-party sites.
-  // Skipped on google.com itself to avoid breaking search page init.
-  if (!ON_GOOGLE) {
-    try {
-      const fakeGPT = {
-        cmd: { push() {} },
-        defineSlot:          () => fakeGPT,
-        defineOutOfPageSlot: () => fakeGPT,
-        pubads: () => ({
-          enableSingleRequest()          {},
-          collapseEmptyDivs()            {},
-          disableInitialLoad()           {},
-          addEventListener()             {},
-          refresh()                      {},
-          setTargeting()                 {},
-          setRequestNonPersonalizedAds() {},
-        }),
-        enableServices() {},
-        display()        {},
-        destroySlots:    () => true,
-      };
-      Object.defineProperty(window, 'googletag', {
-        get: () => fakeGPT, set() {}, configurable: true,
-      });
-    } catch (_) {}
-
-    // ── 3. adsbygoogle noop ───────────────────────────────────────────────────
-    try {
-      Object.defineProperty(window, 'adsbygoogle', {
-        get: () => ({ push() {}, length: 0 }),
-        set() {},
-        configurable: true,
-      });
-    } catch (_) {}
-  }
-
-  // ── 3b. YouTube — strip ad placements from player bootstrap data ─────────
-  // YouTube embeds all player config (including ad slots) in a global called
-  // ytInitialPlayerResponse before any JS runs. We intercept the setter and
-  // delete the ad-related keys so the player never schedules ads.
-  if (location.hostname.includes('youtube.com')) {
-    const _stripAds = obj => {
-      if (!obj || typeof obj !== 'object') return obj;
-      delete obj.adPlacements;
-      delete obj.playerAds;
-      delete obj.adSlots;
-      if (Array.isArray(obj.adBreakHeartbeatParams)) obj.adBreakHeartbeatParams = [];
-      return obj;
+  // ── 2. googletag noop ──────────────────────────────────────────────────────
+  try {
+    const fakeGPT = {
+      cmd: { push() {} },
+      defineSlot:          () => fakeGPT,
+      defineOutOfPageSlot: () => fakeGPT,
+      pubads: () => ({
+        enableSingleRequest()          {},
+        collapseEmptyDivs()            {},
+        disableInitialLoad()           {},
+        addEventListener()             {},
+        refresh()                      {},
+        setTargeting()                 {},
+        setRequestNonPersonalizedAds() {},
+      }),
+      enableServices() {},
+      display()        {},
+      destroySlots:    () => true,
     };
+    Object.defineProperty(window, 'googletag', {
+      get: () => fakeGPT, set() {}, configurable: true,
+    });
+  } catch (_) {}
 
+  // ── 3. adsbygoogle noop ────────────────────────────────────────────────────
+  try {
+    Object.defineProperty(window, 'adsbygoogle', {
+      get: () => ({ push() {}, length: 0 }),
+      set() {},
+      configurable: true,
+    });
+  } catch (_) {}
+
+  // ── 4. YouTube — strip ad placements from player bootstrap data ───────────
+  if (location.hostname.includes('youtube.com')) {
     let _ytpr;
     try {
       Object.defineProperty(window, 'ytInitialPlayerResponse', {
-        get: ()  => _ytpr,
-        set: val => { _ytpr = _stripAds(val); },
-        configurable: true,
-      });
-    } catch (_) {}
-
-    // Some YouTube page variants use ytplayer.config instead
-    let _ytplayer;
-    try {
-      Object.defineProperty(window, 'ytplayer', {
-        get: () => _ytplayer,
+        get: () => _ytpr,
         set: val => {
-          if (val?.config?.args?.raw_player_response) {
-            _stripAds(val.config.args.raw_player_response);
+          if (val && typeof val === 'object') {
+            val.adPlacements = [];
+            val.playerAds    = [];
           }
-          _ytplayer = val;
+          _ytpr = val;
         },
         configurable: true,
       });
     } catch (_) {}
   }
 
-  // ── 4. Header-bidding framework noops ─────────────────────────────────────
-  // Prebid.js, Amazon TAM, Criteo — swallowed with a no-op proxy.
+  // ── 5. Prebid.js noop — call bidsBackHandler immediately with no bids ─────
+  // A pure no-op causes sites to wait forever for the callback → error screens.
+  if (window.pbjs === undefined) {
+    try {
+      const _pbjs = {
+        que: [],
+        requestBids({ bidsBackHandler } = {}) { try { bidsBackHandler?.(); } catch (_) {} },
+        addAdUnits() {},
+        setConfig()  {},
+        getConfig:   () => ({}),
+        adUnits:     [],
+      };
+      Object.defineProperty(window, 'pbjs', { get: () => _pbjs, set() {}, configurable: true });
+    } catch (_) {}
+  }
+
+  // ── 6. Amazon TAM / Criteo noops ──────────────────────────────────────────
   const noopProxy = new Proxy({}, {
-    get:       () => noopProxy,
-    set:       () => true,
-    apply:     () => {},
-    construct: () => noopProxy,
+    get: () => noopProxy, set: () => true, apply: () => {}, construct: () => noopProxy,
   });
-  ['pbjs', 'apstag', 'Criteo'].forEach(name => {
+  ['apstag', 'Criteo'].forEach(name => {
     try {
       if (window[name] === undefined) {
         Object.defineProperty(window, name, { get: () => noopProxy, set() {}, configurable: true });
@@ -138,9 +119,7 @@
     } catch (_) {}
   });
 
-  // ── 5. Notification permission — block auto-prompts ───────────────────────
-  // Blocks Notification.requestPermission() unless the user has already
-  // interacted with the page (click/keydown) — auto-prompts are an ad pattern.
+  // ── 7. Notification permission — block auto-prompts ───────────────────────
   let _interacted = false;
   ['click', 'keydown'].forEach(e =>
     document.addEventListener(e, () => { _interacted = true; }, { once: true, capture: true })

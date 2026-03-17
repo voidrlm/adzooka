@@ -151,7 +151,9 @@
   }
 
   // ── 5. Auto-click "Skip ad" buttons ──────────────────────────────────────
-  const SKIP_RE = /^skip\s*(ad|ads|this\s*ad|advertisement|>+)?\s*$/i;
+  // "ad/ads/advertisement" is now REQUIRED after "skip" — bare "Skip" (e.g.
+  // Spotify's track-skip or YouTube's next-video button) no longer matches.
+  const SKIP_RE = /^skip\s*(ad|ads|this\s*ad|advertisement|>+)\s*$/i;
 
   function clickSkipButtons() {
     try {
@@ -180,29 +182,24 @@
 
   function handleYouTubeAd() {
     if (!location.hostname.includes('youtube.com')) return;
-
-    // Click any visible skip button
     try {
+      // 1. Click skip button if visible
       const btn = document.querySelector(YT_SKIP_BTN);
       if (btn) { btn.click(); return; }
-    } catch (_) {}
 
-    // If ad is playing and not skippable, advance to end
-    try {
-      const adShowing = document.querySelector('.ad-showing');
-      if (adShowing) {
-        const video = document.querySelector('video');
-        if (video && isFinite(video.duration) && video.duration > 0) {
-          video.currentTime = video.duration;
-        }
-        // Hide the ad overlay elements
-        ['.ytp-ad-module', '.ytp-ad-overlay-container',
-         '.ytp-ad-text-overlay', '.ytp-ad-progress'].forEach(sel => {
-          document.querySelectorAll(sel).forEach(el => {
-            el.style.setProperty('display', 'none', 'important');
-          });
-        });
-      }
+      // 2. Fast-forward unskippable ad — only when ALL conditions are met:
+      //    • .ad-showing is on the player (YouTube's own ad indicator)
+      //    • video has a finite, non-zero duration (fully loaded stream)
+      //    • video has been playing for at least 0.5 s (avoids firing on load)
+      const player = document.querySelector('.ad-showing');
+      if (!player) return;
+      const video = document.querySelector('video');
+      if (!video) return;
+      if (!isFinite(video.duration) || video.duration <= 0) return;
+      if (video.currentTime < 0.5) return;          // too early — still loading
+      if (video.currentTime >= video.duration - 0.1) return; // already at end
+
+      video.currentTime = video.duration;
     } catch (_) {}
   }
 
