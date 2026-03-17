@@ -207,5 +207,24 @@
   {"id":197,"priority":1,"action":{"type":"block"},"condition":{"urlFilter":"||x.bidswitch.net^",           "resourceTypes":["script","image","xmlhttprequest","other"]}},
   {"id":198,"priority":1,"action":{"type":"block"},"condition":{"urlFilter":"||rtb-csync.smartadserver.com^","resourceTypes":["script","image","xmlhttprequest","other"]}},
   {"id":199,"priority":1,"action":{"type":"block"},"condition":{"urlFilter":"||simage2.pubmatic.com^",      "resourceTypes":["script","image","xmlhttprequest","other"]}},
-  {"id":200,"priority":1,"action":{"type":"block"},"condition":{"urlFilter":"||image2.pubmatic.com^",       "resourceTypes":["script","image","xmlhttprequest","other"]}}
+  {"id":200,"priority":1,"action":{"type":"block"},"condition":{"urlFilter":"||image2.pubmatic.com^",       "resourceTypes":["script","image","xmlhttprequest","other"]}},
+
+  {"id":201,"priority":1,"action":{"type":"block"},"condition":{"urlFilter":"||juicyads.com^",              "resourceTypes":["script","image","xmlhttprequest","sub_frame","media","other"]}},
+  {"id":202,"priority":1,"action":{"type":"block"},"condition":{"urlFilter":"||trafficfactory.biz^",        "resourceTypes":["script","image","xmlhttprequest","sub_frame","media","other"]}},
+  {"id":203,"priority":1,"action":{"type":"block"},"condition":{"urlFilter":"||ero-advertising.com^",       "resourceTypes":["script","image","xmlhttprequest","sub_frame","media","other"]}},
+  {"id":204,"priority":1,"action":{"type":"block"},"condition":{"urlFilter":"||adxpansion.com^",            "resourceTypes":["script","image","xmlhttprequest","sub_frame","media","other"]}},
+  {"id":205,"priority":1,"action":{"type":"block"},"condition":{"urlFilter":"||plugrush.com^",              "resourceTypes":["script","image","xmlhttprequest","sub_frame","media","other"]}},
+  {"id":206,"priority":1,"action":{"type":"block"},"condition":{"urlFilter":"||exosrv.com^",                "resourceTypes":["script","image","xmlhttprequest","sub_frame","media","other"]}},
+  {"id":207,"priority":1,"action":{"type":"block"},"condition":{"urlFilter":"||adspyglass.com^",            "resourceTypes":["script","image","xmlhttprequest","sub_frame","media","other"]}},
+  {"id":208,"priority":1,"action":{"type":"block"},"condition":{"urlFilter":"||gammaentertainment.com^",   "resourceTypes":["script","image","xmlhttprequest","sub_frame","media","other"]}},
+  {"id":209,"priority":1,"action":{"type":"block"},"condition":{"urlFilter":"||adultadworld.com^",          "resourceTypes":["script","image","xmlhttprequest","sub_frame","media","other"]}},
+  {"id":210,"priority":1,"action":{"type":"block"},"condition":{"urlFilter":"||hilltopads.net^",            "resourceTypes":["script","image","xmlhttprequest","sub_frame","media","other"]}},
+  {"id":211,"priority":1,"action":{"type":"block"},"condition":{"urlFilter":"||adnium.com^",                "resourceTypes":["script","image","xmlhttprequest","sub_frame","media","other"]}},
+  {"id":212,"priority":1,"action":{"type":"block"},"condition":{"urlFilter":"||cpmstar.com^",               "resourceTypes":["script","image","xmlhttprequest","sub_frame","media","other"]}},
+  {"id":213,"priority":1,"action":{"type":"block"},"condition":{"urlFilter":"||adultforce.com^",            "resourceTypes":["script","image","xmlhttprequest","sub_frame","media","other"]}},
+  {"id":214,"priority":1,"action":{"type":"block"},"condition":{"urlFilter":"||twinrdsrv.com^",             "resourceTypes":["script","image","xmlhttprequest","sub_frame","media","other"]}},
+  {"id":215,"priority":1,"action":{"type":"block"},"condition":{"urlFilter":"||adultdeals.net^",            "resourceTypes":["script","image","xmlhttprequest","sub_frame","media","other"]}},
+  {"id":216,"priority":1,"action":{"type":"block"},"condition":{"urlFilter":"||etahub.com^",                "resourceTypes":["script","image","xmlhttprequest","sub_frame","media","other"]}},
+  {"id":217,"priority":1,"action":{"type":"block"},"condition":{"urlFilter":"||juicymedia.io^",             "resourceTypes":["script","image","xmlhttprequest","sub_frame","media","other"]}},
+  {"id":218,"priority":1,"action":{"type":"block"},"condition":{"urlFilter":"||trafficholder.com^",         "resourceTypes":["script","image","xmlhttprequest","sub_frame","media","other"]}}
 ]
