@@ -431,7 +431,55 @@
     } catch (_) {}
   }
 
-  // ── 7. Block meta refresh redirects ──────────────────────────────────────
+  // ── 7. Native ad removal — elements with "Ad" disclosure badge ───────────
+  // Catches native/in-feed ads that show a small "Ad" label (like in the
+  // screenshot). Walks up from the badge to its nearest block container and
+  // removes it only when the container holds media or an iframe.
+
+  function removeNativeAdsByLabel(root = document) {
+    let count = 0;
+    try {
+      // Gather all leaf-ish elements whose visible text is exactly "Ad" or "Ads"
+      const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+      const adTextNodes = [];
+      let node;
+      while ((node = walker.nextNode())) {
+        const t = node.nodeValue.trim();
+        if (t === "Ad" || t === "Ads" || t === "AD" || t === "ADVERTISEMENT") {
+          adTextNodes.push(node);
+        }
+      }
+      for (const tn of adTextNodes) {
+        const badge = tn.parentElement;
+        if (!badge) continue;
+        // Badge must be small (typical disclosure label sizing)
+        const br = badge.getBoundingClientRect();
+        if (br.width > 80 || br.height > 40) continue;
+        // Walk up to find the block container (stop at body / safe tags)
+        let container = badge.parentElement;
+        let steps = 0;
+        while (container && !SAFE_TAGS.has(container.tagName.toLowerCase()) && steps < 8) {
+          const r = container.getBoundingClientRect();
+          // Stop if the container is larger than a typical ad unit and has media
+          if (r.width > 100 && r.height > 80) {
+            const hasMedia = container.querySelector("img,video,iframe,canvas");
+            if (hasMedia) break;
+          }
+          container = container.parentElement;
+          steps++;
+        }
+        if (!container || SAFE_TAGS.has(container.tagName.toLowerCase())) continue;
+        // Final safety: container must not be huge (> 80% viewport = page section)
+        const cr = container.getBoundingClientRect();
+        if (cr.width > window.innerWidth * 0.85 && cr.height > window.innerHeight * 0.85) continue;
+        container.remove();
+        count++;
+      }
+    } catch (_) {}
+    return count;
+  }
+
+  // ── 8. Block meta refresh redirects ──────────────────────────────────────
 
   function blockMetaRedirects() {
     const metas = document.querySelectorAll('meta[http-equiv="refresh"],meta[http-equiv="Refresh"]');
