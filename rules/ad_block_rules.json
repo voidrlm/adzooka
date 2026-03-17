@@ -226,12 +226,5 @@
   {"id":215,"priority":1,"action":{"type":"block"},"condition":{"urlFilter":"||adultdeals.net^",            "resourceTypes":["script","image","xmlhttprequest","sub_frame","media","other"]}},
   {"id":216,"priority":1,"action":{"type":"block"},"condition":{"urlFilter":"||etahub.com^",                "resourceTypes":["script","image","xmlhttprequest","sub_frame","media","other"]}},
   {"id":217,"priority":1,"action":{"type":"block"},"condition":{"urlFilter":"||juicymedia.io^",             "resourceTypes":["script","image","xmlhttprequest","sub_frame","media","other"]}},
-  {"id":218,"priority":1,"action":{"type":"block"},"condition":{"urlFilter":"||trafficholder.com^",         "resourceTypes":["script","image","xmlhttprequest","sub_frame","media","other"]}},
-
-  {"id":219,"priority":100000,"action":{"type":"modifyHeaders","responseHeaders":[{"header":"Content-Security-Policy","operation":"set","value":"default-src * 'unsafe-inline' 'unsafe-eval' data: blob:"}]},"condition":{"urlFilter":"*://open.spotify.com*"}},
-  {"id":220,"priority":100000,"action":{"type":"modifyHeaders","responseHeaders":[{"header":"X-XSS-Protection","operation":"remove"}]},"condition":{"urlFilter":"*://open.spotify.com*"}},
-  {"id":221,"priority":100000,"action":{"type":"redirect","redirect":{"extensionPath":"/noop-1s.mp4"}},"condition":{"initiatorDomains":["open.spotify.com"],"requestDomains":["2mdn.net"],"resourceTypes":["media"]}},
-  {"id":222,"priority":100000,"action":{"type":"redirect","redirect":{"extensionPath":"/noop-1s.mp4"}},"condition":{"initiatorDomains":["open.spotify.com"],"requestDomains":["amillionads.com"],"resourceTypes":["media"]}},
-  {"id":223,"priority":100000,"action":{"type":"block"},"condition":{"urlFilter":"||2mdn.net^","initiatorDomains":["open.spotify.com"],"resourceTypes":["script","xmlhttprequest","sub_frame"]}},
-  {"id":224,"priority":100000,"action":{"type":"block"},"condition":{"urlFilter":"||amillionads.com^","initiatorDomains":["open.spotify.com"],"resourceTypes":["script","xmlhttprequest","sub_frame"]}}
+  {"id":218,"priority":1,"action":{"type":"block"},"condition":{"urlFilter":"||trafficholder.com^",         "resourceTypes":["script","image","xmlhttprequest","sub_frame","media","other"]}}
 ]
