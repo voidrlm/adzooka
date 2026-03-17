@@ -25,6 +25,12 @@
     "bluekai.com","exelate.com","lotame.com","rlcdn.com","id5-sync.com",
     "everesttech.net","chartbeat.com","bat.bing.com","ads.twitter.com",
     "analytics.tiktok.com","ad.tiktok.com","pangle.io",
+    // Adult ad networks
+    "juicyads.com","trafficfactory.biz","ero-advertising.com",
+    "adxpansion.com","plugrush.com","exosrv.com","adspyglass.com",
+    "gammaentertainment.com","adultadworld.com","trafficholder.com",
+    "hilltopads.net","adnium.com","cpmstar.com","adultforce.com",
+    "twinrdsrv.com","adultdeals.net","etahub.com","juicymedia.io",
   ];
 
   // IAB standard display ad sizes [width, height]
@@ -164,6 +170,12 @@
     "iframe[src*='spotx.tv']","iframe[src*='innovid.com']",
     "iframe[src*='amazon-adsystem.com']","iframe[src*='gumgum.com']",
     "iframe[src*='flashtalking.com']","iframe[src*='serving-sys.com']",
+    "iframe[src*='juicyads.com']","iframe[src*='trafficfactory.biz']",
+    "iframe[src*='ero-advertising.com']","iframe[src*='adxpansion.com']",
+    "iframe[src*='plugrush.com']","iframe[src*='exosrv.com']",
+    "iframe[src*='adspyglass.com']","iframe[src*='hilltopads.net']",
+    "iframe[src*='adnium.com']","iframe[src*='cpmstar.com']",
+    "iframe[src*='twinrdsrv.com']","iframe[src*='juicymedia.io']",
 
     // Tracking pixels
     "img[src*='doubleclick.net']","img[src*='googlesyndication.com']",
