@@ -12,6 +12,11 @@
   // Bail out if the extension context has been invalidated (e.g. after reload)
   if (typeof chrome === 'undefined' || !chrome.runtime) return;
 
+  // Spotify: ads are audio streams, not DOM elements. DOM removal breaks their
+  // React app and causes "Something went wrong". DNR rules in ad_block_rules.json
+  // redirect ad audio to noop-1s.mp4 — no JS manipulation needed here.
+  if (location.hostname.includes('spotify.com')) return;
+
   // ── 1. Inject filter-list cosmetic CSS from storage ───────────────────────
   // background.js fetches EasyList + uBO filter lists and stores the parsed
   // CSS. We inject it here as early as possible (document_start).
