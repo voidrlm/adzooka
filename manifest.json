@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Adzooka",
   "version": "3.0.0",
-  "description": "Advanced ad blocker, popup blocker, and tracker prevention",
+  "description": "R.I.P. ads, they got hit by a bazooka.",
   "permissions": [
     "declarativeNetRequest",
     "declarativeNetRequestWithHostAccess",
