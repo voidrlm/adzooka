@@ -1,16 +1,18 @@
 {
   "manifest_version": 3,
   "name": "Adzooka",
-  "version": "2.0.0",
-  "description": "Advanced ad blocker, popup blocker, and click redirect preventer",
+  "version": "3.0.0",
+  "description": "uBlock Origin-style ad blocker with live filter lists",
   "permissions": [
     "declarativeNetRequest",
     "declarativeNetRequestWithHostAccess",
     "declarativeNetRequestFeedback",
     "storage",
+    "unlimitedStorage",
     "tabs",
     "scripting",
-    "webNavigation"
+    "webNavigation",
+    "alarms"
   ],
   "host_permissions": [
     "<all_urls>"
