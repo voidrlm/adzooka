@@ -547,9 +547,10 @@
     const c2 = removeThirdPartyAdIframes();
     const c3 = removeHeuristicAdElements();
     const c4 = removeAntiAdblockOverlays();
+    const c5 = removeNativeAdsByLabel();
     removeStickyAdBanners();
     collapseEmptyAdSlots();
-    const total = c1 + c2 + c3 + c4;
+    const total = c1 + c2 + c3 + c4 + c5;
     if (total > 0) {
       chrome.runtime.sendMessage({ type: "CONTENT_BLOCKED", count: total }).catch(() => {});
     }
