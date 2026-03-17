@@ -204,7 +204,20 @@ iframe[src*="serving-sys.com"],
 iframe[src*="advertising.com"],
 iframe[src*="casalemedia.com"],
 iframe[src*="tripadvisor.com/ads"],
-iframe[src*="gumgum.com"] { display: none !important; }
+iframe[src*="gumgum.com"],
+iframe[src*="juicyads.com"],
+iframe[src*="trafficfactory.biz"],
+iframe[src*="ero-advertising.com"],
+iframe[src*="adxpansion.com"],
+iframe[src*="plugrush.com"],
+iframe[src*="exosrv.com"],
+iframe[src*="adspyglass.com"],
+iframe[src*="hilltopads.net"],
+iframe[src*="adnium.com"],
+iframe[src*="cpmstar.com"],
+iframe[src*="twinrdsrv.com"],
+iframe[src*="juicymedia.io"],
+iframe[src*="trafficholder.com"] { display: none !important; }
 
 /* ── Tracking pixels ──────────────────────────────────────────────────────── */
 img[src*="doubleclick.net"],
