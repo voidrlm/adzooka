@@ -1,0 +1,240 @@
+/* ── Adzooka — Cosmetic Filter CSS v2 ─────────────────────────────────
+   Hides known ad elements via CSS instantly at document_start,
+   before JS runs. Complements content.js removal.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+/* ── Google Publisher Tag / DFP / GAM — most common ad slot pattern ─────── */
+[id^="div-gpt-ad"],
+[id*="-dfp-"],
+[id*="_dfp_"],
+[id*="-gpt-"],
+[id*="_gpt_"],
+[class*="dfp-ad"],
+[class*="gpt-ad"],
+[data-google-query-id],
+[data-google-av-cxn],
+.dfp-slot,
+.gpt-slot { display: none !important; }
+
+/* ── Google AdSense ───────────────────────────────────────────────────────── */
+ins.adsbygoogle,
+.adsbygoogle,
+[data-ad-client],
+[data-ad-slot],
+[data-ad-unit-id],
+div[id^="google_ads_"],
+iframe[id^="google_ads_iframe"],
+iframe[id^="aswift_"],
+#google-sfp-ads { display: none !important; }
+
+/* ── YouTube ads ──────────────────────────────────────────────────────────── */
+.ytd-banner-promo-renderer,
+.ytd-promoted-sparkles-web-renderer,
+.ytd-promoted-video-renderer,
+.ytd-ad-slot-renderer,
+.ytd-in-feed-ad-layout-renderer,
+ytd-promoted-sparkles-text-search-renderer,
+yt-mealbar-promo-renderer,
+#masthead-ad,
+#player-ads,
+.ytp-ad-overlay-container,
+.ytp-ad-text-overlay,
+.ytp-ad-module,
+.ytp-ad-image-overlay,
+.ytp-ad-progress,
+.ytp-ad-progress-list,
+ytd-action-companion-ad-renderer,
+ytd-display-ad-renderer,
+ytd-statement-banner-renderer,
+ytd-rich-item-renderer:has(ytd-ad-slot-renderer),
+ytd-companion-slot-renderer { display: none !important; }
+
+/* ── Google Search ads ────────────────────────────────────────────────────── */
+#tads,
+#tadsb,
+#bottomads,
+.ads-ad,
+li.ads-ad,
+.commercial-unit-desktop-top,
+[data-text-ad],
+.cu-container.rhsvw { display: none !important; }
+
+/* ── Taboola ──────────────────────────────────────────────────────────────── */
+.trc_rbox_div,
+.trc_rbox,
+.taboola-widget,
+#taboola-below-article-thumbnails,
+#taboola-above-article-thumbnails,
+#taboola-right-rail-thumbnails,
+[id^="taboola-"],
+[class^="taboola-"],
+div[data-testid="taboola"] { display: none !important; }
+
+/* ── Outbrain ─────────────────────────────────────────────────────────────── */
+.OUTBRAIN,
+.ob-widget,
+.ob-smartfeed-wrapper,
+.ob-container,
+[data-widget-id^="AR_"],
+[id^="outbrain_"],
+.outbrain-widget { display: none !important; }
+
+/* ── Criteo ───────────────────────────────────────────────────────────────── */
+[id^="criteo-"],
+[class*="criteo"],
+iframe[src*="criteo.com"] { display: none !important; }
+
+/* ── Reddit promoted posts ────────────────────────────────────────────────── */
+[data-promoted="true"],
+.promotedlink,
+.promoted-link,
+[class*="promoted-"] { display: none !important; }
+
+/* ── Twitter/X promoted tweets ────────────────────────────────────────────── */
+[data-testid="placementTracking"],
+[aria-label="Promoted Tweet"],
+[aria-label^="Ad"] { display: none !important; }
+
+/* ── ARIA-based universal ad hiding ──────────────────────────────────────────
+   Catches labelled ad slots across any site. ─────────────────────────────── */
+[aria-label="Advertisement"],
+[aria-label="advertisement"],
+[aria-label="Advertisements"],
+[aria-label="Sponsored"],
+[aria-label="sponsored"],
+[aria-label="Sponsored content"],
+[role="complementary"][aria-label*="Ad"],
+[role="complementary"][aria-label*="Sponsor"] { display: none !important; }
+
+/* ── Generic ad class/id patterns ────────────────────────────────────────── */
+[class*="ad-container"],  [id*="ad-container"],
+[class*="ad-wrapper"],    [id*="ad-wrapper"],
+[class*="ad-slot"],       [id*="ad-slot"],
+[class*="ad-unit"],       [id*="ad-unit"],
+[class*="ad-block"],      [id*="ad-block"],
+[class*="ad-holder"],     [id*="ad-holder"],
+[class*="ad-area"],       [id*="ad-area"],
+[class*="ad-box"],        [id*="ad-box"],
+[class*="ad-section"],    [id*="ad-section"],
+[class*="advert"],        [id*="advert"],
+[class*="advertisement"], [id*="advertisement"],
+[class*="adsense"],       [id*="adsense"],
+[class*="ads-container"], [id*="ads-container"],
+[class*="ads-wrapper"],   [id*="ads-wrapper"],
+[class*="ads-box"],       [id*="ads-box"],
+[class*="banner-ad"],     [id*="banner-ad"],
+[class*="ad-banner"],     [id*="ad-banner"],
+[class*="sidebar-ad"],    [id*="sidebar-ad"],
+[class*="post-ad"],       [id*="post-ad"],
+[class*="inline-ad"],     [id*="inline-ad"],
+[class*="native-ad"],     [id*="native-ad"],
+[class*="native_ad"],     [id*="native_ad"],
+[class*="dfp-ad"],        [id*="dfp-ad"],
+[class*="gpt-ad"],        [id*="gpt-ad"],
+[class*="sponsored"],     [id*="sponsored"],
+[class*="sponsorship"],   [id*="sponsorship"],
+[class*="promotion"],     [id*="promotion"],
+[class*="promoted"],      [id*="promoted"] { display: none !important; }
+
+/* ── Sticky / floating / overlay ads ─────────────────────────────────────── */
+[class*="sticky-ad"],
+[class*="float-ad"],
+[class*="fixed-ad"],
+[class*="overlay-ad"],
+[class*="interstitial"],
+[class*="popup-ad"],
+[class*="takeover-ad"],
+[class*="wall-ad"],
+[id*="sticky-ad"],
+[id*="float-ad"],
+[id*="overlay-ad"],
+[id*="interstitial"],
+[id*="popup-ad"],
+[id*="takeover-ad"] { display: none !important; }
+
+/* ── Popup Maker ──────────────────────────────────────────────────────────── */
+.pum-container,
+.pum-overlay,
+#pum-1 { display: none !important; }
+
+/* ── Anti-adblock nag elements ────────────────────────────────────────────── */
+.adblock-notice,
+.adblock-overlay,
+.adblock-wall,
+.ad-block-notice,
+.adblock-message,
+.adblock-detected,
+[class*="adblock-"],
+[id*="adblock-"],
+[class*="anti-adblock"],
+[id*="anti-adblock"],
+[class*="adblocker"],
+[id*="adblocker"],
+#adblock-overlay,
+#adblock-notice { display: none !important; }
+
+/* ── iFrame ad networks ───────────────────────────────────────────────────── */
+iframe[src*="doubleclick.net"],
+iframe[src*="googlesyndication.com"],
+iframe[src*="googleadservices.com"],
+iframe[src*="adnxs.com"],
+iframe[src*="openx.net"],
+iframe[src*="rubiconproject.com"],
+iframe[src*="pubmatic.com"],
+iframe[src*="criteo.com"],
+iframe[src*="taboola.com"],
+iframe[src*="outbrain.com"],
+iframe[src*="media.net"],
+iframe[src*="exoclick.com"],
+iframe[src*="propellerads.com"],
+iframe[src*="popcash.net"],
+iframe[src*="popads.net"],
+iframe[src*="trafficjunky.net"],
+iframe[src*="adcash.com"],
+iframe[src*="mgid.com"],
+iframe[src*="coinzilla.io"],
+iframe[src*="adsterra.com"],
+iframe[src*="freewheel.tv"],
+iframe[src*="spotx.tv"],
+iframe[src*="innovid.com"],
+iframe[src*="smartadserver.com"],
+iframe[src*="amazon-adsystem.com"],
+iframe[src*="flashtalking.com"],
+iframe[src*="serving-sys.com"],
+iframe[src*="advertising.com"],
+iframe[src*="casalemedia.com"],
+iframe[src*="tripadvisor.com/ads"],
+iframe[src*="gumgum.com"] { display: none !important; }
+
+/* ── Tracking pixels ──────────────────────────────────────────────────────── */
+img[src*="doubleclick.net"],
+img[src*="googlesyndication.com"],
+img[src*="scorecardresearch.com"],
+img[src*="quantserve.com"],
+img[src*="facebook.com/tr"],
+img[src*="bat.bing.com"],
+img[src*="demdex.net"],
+img[src*="bluekai.com"],
+img[src*="exelate.com"],
+img[src*="addthis.com"],
+img[src*="sharethis.com"],
+img[src*="lotame.com"],
+img[src*="id5-sync.com"],
+img[width="1"][height="1"][src*="track"],
+img[width="1"][height="1"][src*="pixel"],
+img[width="0"][height="0"] { display: none !important; }
+
+/* ── Amazon sponsored products ────────────────────────────────────────────── */
+[class*="sponsored-products"],
+[class*="sp-detail-buttons"],
+.ape-ad-container,
+#ape_Detail_dp_placement { display: none !important; }
+
+/* ── Crypto miner scripts ─────────────────────────────────────────────────── */
+script[src*="coinhive.com"],
+script[src*="coin-hive.com"],
+script[src*="cryptoloot.pro"],
+script[src*="minero.cc"],
+script[src*="webmine.pro"],
+script[src*="jsecoin.com"],
+script[src*="authedmine.com"] { display: none !important; }
