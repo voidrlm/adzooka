@@ -432,54 +432,96 @@
   }
 
   // ── 7. Native ad removal — elements with "Ad" disclosure badge ───────────
-  // Catches native/in-feed ads that show a small "Ad" label (like in the
-  // screenshot). Walks up from the badge to its nearest block container and
-  // removes it only when the container holds media or an iframe.
+  // Catches native/in-feed ads that show a small "Ad" label. Checks both raw
+  // text nodes AND element textContent so CSS-wrapped badges are also caught.
+
+  const AD_BADGE_RE = /^(Ad|Ads|AD|ADS|ADVERTISEMENT|Sponsored)$/;
+
+  function _findAdContainer(badge) {
+    let container = badge.parentElement;
+    let steps = 0;
+    while (container && !SAFE_TAGS.has(container.tagName.toLowerCase()) && steps < 10) {
+      const r = container.getBoundingClientRect();
+      if (r.width > 80 && r.height > 60) {
+        const hasMedia = container.querySelector("img,video,iframe,canvas");
+        if (hasMedia) return container;
+      }
+      container = container.parentElement;
+      steps++;
+    }
+    return null;
+  }
 
   function removeNativeAdsByLabel(root = document) {
     let count = 0;
     try {
-      // Gather all leaf-ish elements whose visible text is exactly "Ad" or "Ads"
+      // Pass 1: raw text nodes
       const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
-      const adTextNodes = [];
       let node;
+      const seen = new Set();
       while ((node = walker.nextNode())) {
-        const t = node.nodeValue.trim();
-        if (t === "Ad" || t === "Ads" || t === "AD" || t === "ADVERTISEMENT") {
-          adTextNodes.push(node);
-        }
-      }
-      for (const tn of adTextNodes) {
-        const badge = tn.parentElement;
-        if (!badge) continue;
-        // Badge must be small (typical disclosure label sizing)
+        if (!AD_BADGE_RE.test(node.nodeValue.trim())) continue;
+        const badge = node.parentElement;
+        if (!badge || seen.has(badge)) continue;
+        seen.add(badge);
         const br = badge.getBoundingClientRect();
-        if (br.width > 80 || br.height > 40) continue;
-        // Walk up to find the block container (stop at body / safe tags)
-        let container = badge.parentElement;
-        let steps = 0;
-        while (container && !SAFE_TAGS.has(container.tagName.toLowerCase()) && steps < 8) {
-          const r = container.getBoundingClientRect();
-          // Stop if the container is larger than a typical ad unit and has media
-          if (r.width > 100 && r.height > 80) {
-            const hasMedia = container.querySelector("img,video,iframe,canvas");
-            if (hasMedia) break;
-          }
-          container = container.parentElement;
-          steps++;
-        }
-        if (!container || SAFE_TAGS.has(container.tagName.toLowerCase())) continue;
-        // Final safety: container must not be huge (> 80% viewport = page section)
+        if (br.width > 100 || br.height > 50) continue;
+        const container = _findAdContainer(badge);
+        if (!container) continue;
         const cr = container.getBoundingClientRect();
         if (cr.width > window.innerWidth * 0.85 && cr.height > window.innerHeight * 0.85) continue;
-        container.remove();
-        count++;
+        container.remove(); count++;
+      }
+
+      // Pass 2: small elements whose full textContent is an ad label
+      // (catches <span class="ad-label">Ad</span> where text is inside child)
+      const smalls = root.querySelectorAll(
+        "span,div,label,em,b,strong,i,sup,abbr"
+      );
+      for (const el of smalls) {
+        if (seen.has(el)) continue;
+        const t = (el.textContent || "").trim();
+        if (!AD_BADGE_RE.test(t)) continue;
+        // Must be visually small
+        const r = el.getBoundingClientRect();
+        if (r.width === 0 || r.width > 100 || r.height > 50) continue;
+        seen.add(el);
+        const container = _findAdContainer(el);
+        if (!container) continue;
+        const cr = container.getBoundingClientRect();
+        if (cr.width > window.innerWidth * 0.85 && cr.height > window.innerHeight * 0.85) continue;
+        container.remove(); count++;
       }
     } catch (_) {}
     return count;
   }
 
-  // ── 8. Block meta refresh redirects ──────────────────────────────────────
+  // ── 8. Auto-skip video pre-roll ads ──────────────────────────────────────
+  // Clicks "Skip ad" / "Skip >>" / "Skip Ad" buttons that sites inject over
+  // their own video player. Runs on every MutationObserver tick so it catches
+  // buttons that appear after a countdown.
+
+  const SKIP_RE = /skip\s*(ad|ads|>>|this\s*ad)?/i;
+
+  function autoSkipVideoAds() {
+    try {
+      // Target buttons, links, divs that look like skip controls
+      const candidates = document.querySelectorAll(
+        "button,a,[role='button'],[class*='skip'],[id*='skip'],[class*='Skip'],[id*='Skip']"
+      );
+      for (const el of candidates) {
+        const text = (el.textContent || el.getAttribute("aria-label") || el.title || "").trim();
+        if (SKIP_RE.test(text)) {
+          // Must be visible
+          const r = el.getBoundingClientRect();
+          if (r.width === 0 && r.height === 0) continue;
+          el.click();
+        }
+      }
+    } catch (_) {}
+  }
+
+  // ── 10. Block meta refresh redirects ─────────────────────────────────────
 
   function blockMetaRedirects() {
     const metas = document.querySelectorAll('meta[http-equiv="refresh"],meta[http-equiv="Refresh"]');
@@ -492,7 +534,7 @@
     }
   }
 
-  // ── 8. Link unwrapping ────────────────────────────────────────────────────
+  // ── 11. Link unwrapping ───────────────────────────────────────────────────
 
   function unwrapLinks(root = document) {
     try {
@@ -548,6 +590,7 @@
     const c3 = removeHeuristicAdElements();
     const c4 = removeAntiAdblockOverlays();
     const c5 = removeNativeAdsByLabel();
+    autoSkipVideoAds();
     removeStickyAdBanners();
     collapseEmptyAdSlots();
     const total = c1 + c2 + c3 + c4 + c5;

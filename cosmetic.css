@@ -243,6 +243,23 @@ img[width="0"][height="0"] { display: none !important; }
 .ape-ad-container,
 #ape_Detail_dp_placement { display: none !important; }
 
+/* ── Video pre-roll / skip-ad overlays ───────────────────────────────────── */
+[class*="skip-ad"],
+[id*="skip-ad"],
+[class*="skipAd"],
+[id*="skipAd"],
+[class*="skip_ad"],
+[id*="skip_ad"],
+[class*="video-ad-overlay"],
+[class*="preroll"],
+[id*="preroll"],
+[class*="pre-roll"],
+[id*="pre-roll"],
+[class*="ad-overlay"],
+[id*="ad-overlay"],
+[class*="video-ads"],
+[id*="video-ads"] { display: none !important; }
+
 /* ── Crypto miner scripts ─────────────────────────────────────────────────── */
 script[src*="coinhive.com"],
 script[src*="coin-hive.com"],
