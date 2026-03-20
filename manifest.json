@@ -31,6 +31,13 @@
       "all_frames": true
     },
     {
+      "matches": ["*://*.spotify.com/*"],
+      "js": ["spotify-ads.js"],
+      "world": "MAIN",
+      "run_at": "document_start",
+      "all_frames": false
+    },
+    {
       "matches": ["*://*.youtube.com/*", "*://*.spotify.com/*"],
       "js": ["content.js"],
       "run_at": "document_start",
