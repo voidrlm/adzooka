@@ -125,16 +125,25 @@ function injectHideCSS(tabId, frameId) {
   }).catch(() => {});
 }
 
+async function isSiteDisabled(url) {
+  try {
+    const host = new URL(url).hostname;
+    const { disabledSites = [] } = await chrome.storage.local.get('disabledSites');
+    return disabledSites.includes(host);
+  } catch (_) { return false; }
+}
+
 // Fire on every frame commit — mirrors AdBlock's applyContentFilters() trigger
-chrome.webNavigation.onCommitted.addListener(({ tabId, frameId, url }) => {
-  // Skip extension pages and non-http(s)
+chrome.webNavigation.onCommitted.addListener(async ({ tabId, frameId, url }) => {
   if (!url || !url.startsWith('http')) return;
+  if (await isSiteDisabled(url)) return;
   injectHideCSS(tabId, frameId);
 });
 
 // Also inject when a frame's DOM is ready (belt-and-suspenders for SPAs)
-chrome.webNavigation.onDOMContentLoaded.addListener(({ tabId, frameId, url }) => {
+chrome.webNavigation.onDOMContentLoaded.addListener(async ({ tabId, frameId, url }) => {
   if (!url || !url.startsWith('http')) return;
+  if (await isSiteDisabled(url)) return;
   injectHideCSS(tabId, frameId);
 });
 
