@@ -3,13 +3,17 @@
 //  1. Iframe/image collapsing for frames that load blocked ad domains
 //  2. Element collapsing when resources fail to load (blocked by DNR)
 //  3. Heuristic popup/overlay closer
-(function () {
+(async function () {
   'use strict';
   if (typeof chrome === 'undefined' || !chrome.runtime) return;
 
   // YouTube and Spotify have their own dedicated content.js
   const host = location.hostname;
   if (host.includes('youtube.com') || host.includes('spotify.com')) return;
+
+  // Respect per-site disable toggle
+  const { disabledSites = [] } = await chrome.storage.local.get('disabledSites');
+  if (disabledSites.includes(host)) return;
 
   // Known ad iframe/image src patterns — used for frame collapsing
   const AD_FRAME_PATTERN = /doubleclick\.net|googlesyndication\.com|adnxs\.com|advertising\.com|adservice\.google|pagead2\.|moatads\.com|rubiconproject\.com|openx\.net|appnexus\.com|criteo\.(com|net)|outbrain\.com|taboola\.com|revcontent\.com|mgid\.com|adsrvr\.org|adgrx\.com|medianet\.com|yieldmanager\.com|spotxchange\.com|sharethrough\.com|33across\.com|trafficjunky\.(net|com)|exoclick\.com|realsrv\.com|juicyads\.com|plugrush\.com|trafficfactory\.biz|trafficstars\.com|twinred\.com|popads\.net|popcash\.net|ero-advertising\.com|adxpansion\.com|primis\.tech|tsyndicate\.com/i;
