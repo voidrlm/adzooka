@@ -87,39 +87,32 @@
     });
   } catch (_) {}
 
-  // ── 7. Sentry / Raven noop ─────────────────────────────────────────────────
-  // Handles both old Raven.js API and new Sentry SDK
+  // ── 7. Sentry / Raven — suppress initialization ────────────────────────────
+  // Getter returns undefined so the test sees them as uninitialized.
+  // Setter silently drops whatever the SDK tries to assign.
+  // Works even when the SDK is bundled into the page's own JS.
   try {
-    const noopSentry = {
-      config:           () => noopSentry,
-      install:          () => noopSentry,
-      captureException: () => {},
-      captureMessage:   () => {},
-      captureEvent:     () => {},
-      addBreadcrumb:    () => {},
-      setUser:          () => {},
-      setTag:           () => {},
-      setExtra:         () => {},
-      configureScope:   () => {},
-      withScope:        () => {},
-      init:             () => {},
-      getCurrentHub:    () => ({ getClient: () => null }),
-    };
-    Object.defineProperty(window, 'Raven',  { get: () => noopSentry, set() {}, configurable: true });
-    Object.defineProperty(window, 'Sentry', { get: () => noopSentry, set() {}, configurable: true });
+    ['Sentry', 'Raven'].forEach(name => {
+      Object.defineProperty(window, name, {
+        get: () => undefined,
+        set() {},
+        configurable: true,
+      });
+    });
   } catch (_) {}
 
-  // ── 8. Bugsnag noop ────────────────────────────────────────────────────────
-  // Handles both old bugsnag("apiKey") API and new Bugsnag.start() API
+  // ── 8. Bugsnag — suppress initialization ───────────────────────────────────
+  // The old API is called as bugsnag("apiKey") — we return a callable that
+  // produces undefined, so window.bugsnagClient = undefined (not a live client).
   try {
-    const noopBugsnag = function () { return noopBugsnag; };
-    noopBugsnag.notify          = () => {};
-    noopBugsnag.notifyException = () => {};
-    noopBugsnag.refresh         = () => {};
-    noopBugsnag.start           = () => noopBugsnag;
-    noopBugsnag.createClient    = () => noopBugsnag;
-    Object.defineProperty(window, 'bugsnag',  { get: () => noopBugsnag, set() {}, configurable: true });
-    Object.defineProperty(window, 'Bugsnag',  { get: () => noopBugsnag, set() {}, configurable: true });
+    const deadBugsnag = function () { return undefined; };
+    ['bugsnag', 'Bugsnag'].forEach(name => {
+      Object.defineProperty(window, name, {
+        get: () => deadBugsnag,
+        set() {},
+        configurable: true,
+      });
+    });
   } catch (_) {}
 
 })();
