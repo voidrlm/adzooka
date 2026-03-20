@@ -2,10 +2,11 @@
   "manifest_version": 3,
   "name": "Adzooka",
   "version": "3.0.0",
-  "description": "YouTube & Spotify ad blocker — clean and focused.",
+  "description": "Rest in peace, ads. You just got hit by a bazooka.",
   "permissions": [
     "declarativeNetRequest",
     "scripting",
+    "storage",
     "tabs",
     "webNavigation"
   ],
