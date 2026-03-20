@@ -398,7 +398,34 @@ iframe[src*="adnxs"], iframe[src*="advertising"] { display: none !important; }
 #ppjl, .ppjl { display: none !important; }
 
 /* ═══════════════════════════════════════════════════════════════════════════ */
-/* 18. COOKIE BANNERS / GDPR CONSENT (optional — remove if you want these)    */
+/* 18. ADULT AD NETWORKS — TrafficJunky, ExoClick, JuicyAds, etc.            */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+
+/* TrafficJunky */
+[id^="tj_"], [id^="TJ_"], .tj-container, [data-tj-id],
+#tj_ab_div, .tj-bb, .tj-wrapper,
+/* ExoClick */
+[id^="exo_"], [id^="exo-"], .exo-container, .exoclick-unit,
+div[id^="exo_responsive"], .exoclick_container,
+/* JuicyAds */
+[id^="juicy_"], .juicyads-container, .juicyads_adunit,
+/* PlugRush */
+[id^="plugrush_"], .plugrush-unit,
+/* Primis video ads */
+.primisslate, [id^="primis_"], .primis-container, .primis-player,
+/* TrafficFactory */
+[id^="tf_ad_"], .trafficfactory-unit,
+/* TrafficStars */
+[id^="ts_"], .trafficstars-unit,
+/* PopAds / PopCash overlay */
+#popad, #pop_overlay, .popad-container,
+/* Generic "Ad" badge containers — thumbnail native ads */
+[data-label="Ad"], [data-ad-label], [aria-label="Advertisement"],
+li:has(> .ad-badge), div:has(> .ad-badge),
+li:has(> [class*="sponsored"]), div:has(> [class*="sponsored"]) { display: none !important; }
+
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/* 19. COOKIE BANNERS / GDPR CONSENT (optional — remove if you want these)    */
 /* ═══════════════════════════════════════════════════════════════════════════ */
 /* Uncomment the block below to also hide cookie consent popups:
 #cookie-banner, .cookie-banner, #cookieBanner,
