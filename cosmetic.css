@@ -62,6 +62,66 @@ embed[src*="advertising"] { display: none !important; }
 [id^="google_tag_"],
 .google-tag-container { display: none !important; }
 
+/* ── Facebook / Meta ads ──────────────────────────────────────────────────── */
+[data-pagelet^="FeedUnit"][data-testid*="ad"],
+div[role="feed"] > div[data-pagelet*="Sponsored"],
+span[data-lexical-text="true"] + span[aria-label*="Sponsored"],
+a[aria-label*="Sponsored"] { display: none !important; }
+
+/* ── Twitter / X promoted tweets ─────────────────────────────────────────── */
+[data-testid="placementTracking"],
+div[data-testid="tweet"]:has([data-testid="promotedIndicator"]),
+article:has([data-testid="promotedIndicator"]) { display: none !important; }
+
+/* ── Reddit promoted posts ────────────────────────────────────────────────── */
+[data-promoted="true"],
+shreddit-ad-post,
+div[data-testid*="promoted"],
+.promotedlink { display: none !important; }
+
+/* ── Taboola / Outbrain sponsored content ─────────────────────────────────── */
+#taboola-below-article-thumbnails,
+#taboola-right-rail-thumbnails,
+#taboola-above-article-thumbnails,
+.trc_rbox_div,
+.trc_related_container,
+[id^="taboola-"],
+[id^="outbrain_"],
+.OUTBRAIN,
+[data-widget-id^="OB_"],
+.ob-widget { display: none !important; }
+
+/* ── Criteo retargeting widgets ───────────────────────────────────────────── */
+.criteo-widget,
+[id^="criteo_"] { display: none !important; }
+
+/* ── Amazon ads ──────────────────────────────────────────────────────────── */
+[cel_widget_id*="MAIN-HERO_R2-"],
+.ape-sponsored-label,
+div[data-component-type="sp-sponsored-result"],
+[data-index][aria-label*="Sponsored"] { display: none !important; }
+
+/* ── Generic popup overlays ──────────────────────────────────────────────── */
+/* Blocks fixed/absolute full-screen overlay divs commonly used for ad popovers */
+div[class*="popup"][style*="position: fixed"],
+div[class*="overlay"][style*="position: fixed"],
+div[class*="modal"][style*="position: fixed"][style*="z-index"],
+div[id*="popup-overlay"],
+div[id*="ad-overlay"],
+div[id*="adOverlay"],
+.ad-popup-wrapper,
+.popup-ad,
+#popup-ad,
+#ad-popup { display: none !important; }
+
+/* ── Sticky/floating ad banners ──────────────────────────────────────────── */
+[class*="sticky-ad"],
+[class*="ad-sticky"],
+[id*="sticky-ad"],
+.ads-sticky-banner,
+div[class*="float-ad"],
+div[id*="float-ad"] { display: none !important; }
+
 /* ── Safety override — real video/audio must never be hidden ─────────────── */
 video,
 audio,
