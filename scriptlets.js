@@ -126,15 +126,38 @@
     }
   } catch (_) {}
 
-  // ── 10. window.open popup blocker ─────────────────────────────────────────
-  // Intercepts window.open calls and blocks those targeting known ad/popup
-  // networks. Passes all other calls through unchanged so legitimate popups
-  // (e.g. OAuth, payment flows) still work.
+  // ── 10. window.open popup blocker (eyeo user-gesture approach) ────────────
+  // Two-layer defence:
+  //   a) Domain blocklist — always blocks known ad popup networks
+  //   b) User-gesture timing — blocks any window.open that fires more than
+  //      1 second after the last user interaction (ad scripts delay on purpose)
+  // Mirrors the technique used in eyeo's webext-ad-filtering-solution.
   try {
     const _origOpen = window.open.bind(window);
-    const AD_POPUP_PATTERN = /doubleclick\.net|googlesyndication\.com|adnxs\.com|advertising\.com|popads\.net|popcash\.net|exoclick\.com|trafficjunky\.net|adcash\.com|propellerads\.com|ad\.fly|adf\.ly|linkbucks\.com|adfly\.com|clkmon\.com|clicksfly\.com|ouo\.io/i;
+
+    // Track last real user interaction (click, key, touch)
+    let _lastGesture = 0;
+    const _trackGesture = () => { _lastGesture = Date.now(); };
+    document.addEventListener('mousedown', _trackGesture, true);
+    document.addEventListener('click',     _trackGesture, true);
+    document.addEventListener('keydown',   _trackGesture, true);
+    document.addEventListener('touchend',  _trackGesture, true);
+
+    const AD_POPUP_RE = /trafficjunky\.(net|com)|exoclick\.com|realsrv\.com|juicyads\.(com|me|net)|plugrush\.com|trafficfactory\.biz|trafficstars\.com|tsyndicate\.com|twinred\.com|popcash\.net|popads\.(net|com)|clickadu\.com|adxpansion\.com|ero-advertising\.com|adultforce\.com|propellerads\.com|adcash\.com|adf\.ly|linkbucks\.com|clkmon\.com|ouo\.io|shorte\.st|adfoc\.us|sh\.st|ceesty\.com|destyy\.com|cut-urls\.com/i;
+
     window.open = function (url, target, features) {
-      if (url && AD_POPUP_PATTERN.test(String(url))) return null;
+      const urlStr = String(url || '');
+
+      // Always block known ad popup domains
+      if (AD_POPUP_RE.test(urlStr)) return null;
+
+      // Block any open that happens >1000 ms after last user gesture —
+      // ad scripts intentionally delay their opens to evade simple blockers
+      const msSinceGesture = Date.now() - _lastGesture;
+      if (msSinceGesture > 1000 && urlStr && urlStr !== 'about:blank' && urlStr !== '') {
+        return null;
+      }
+
       return _origOpen(url, target, features);
     };
   } catch (_) {}
