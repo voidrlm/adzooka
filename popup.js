@@ -20,10 +20,11 @@
   const isDisabled = disabledSites.includes(host);
 
   function applyState(disabled) {
-    $toggle.checked       = !disabled;
-    $status.textContent   = disabled ? 'Paused on this site' : 'Active';
-    $status.style.color   = disabled ? 'var(--muted)' : 'var(--green)';
+    $toggle.checked = !disabled;
+    $status.textContent = disabled ? 'Paused on this site' : 'Active';
+    $status.style.color = disabled ? 'var(--muted)' : '';
     $dot.classList.toggle('off', disabled);
+    $pulse.classList.toggle('off', disabled);
   }
 
   applyState(isDisabled);
