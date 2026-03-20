@@ -126,6 +126,20 @@
     '#adhesion-ad',
   ];
 
+  // Adult ad network containers by ID/class prefix
+  const ADULT_AD_SELECTORS = [
+    '[id^="tj_"],[id^="TJ_"]',     // TrafficJunky
+    '.tj-container,[data-tj-id]',
+    '[id^="exo_"],[id^="exo-"]',   // ExoClick
+    '.exo-container,.exoclick-unit',
+    '[id^="juicy_"],.juicyads-container', // JuicyAds
+    '[id^="plugrush_"]',           // PlugRush
+    '.primisslate,[id^="primis_"]',// Primis video ads
+    '[id^="tf_ad_"]',              // TrafficFactory
+    '[id^="ts_"]',                 // TrafficStars
+    '#popad,#pop_overlay',         // PopAds
+  ].join(',');
+
   // Known ad iframe/image src patterns — used for frame collapsing
   const AD_FRAME_PATTERN = /doubleclick\.net|googlesyndication\.com|adnxs\.com|advertising\.com|adservice\.google|pagead2\.|moatads\.com|rubiconproject\.com|openx\.net|appnexus\.com|criteo\.(com|net)|outbrain\.com|taboola\.com|revcontent\.com|mgid\.com|adsrvr\.org|adgrx\.com|medianet\.com|yieldmanager\.com|spotxchange\.com|sharethrough\.com|33across\.com/i;
 
@@ -144,6 +158,9 @@
     } catch (_) {}
   }
 
+  // ── 1b. Adult network selectors — appended to main SEL ───────────────────
+  const SEL_ADULT = ADULT_AD_SELECTORS;
+
   // ── 2. Hide elements via style.setProperty (eyeo approach) ───────────────
   // Using setProperty instead of remove() because SPAs often re-use DOM nodes;
   // removal triggers React/Vue reconciliation errors. Hiding is safer.
@@ -152,6 +169,43 @@
       (root || document).querySelectorAll(SEL).forEach(el => {
         if (el.tagName === 'VIDEO' || el.tagName === 'AUDIO') return;
         el.style.setProperty('display', 'none', 'important');
+      });
+    } catch (_) {}
+    try {
+      (root || document).querySelectorAll(SEL_ADULT).forEach(el => {
+        el.style.setProperty('display', 'none', 'important');
+      });
+    } catch (_) {}
+  }
+
+  // ── 2b. "Ad badge" text detector (eyeo :has-text("Ad") equivalent) ────────
+  // Finds thumbnail/card containers that hold a visible "Ad" label badge —
+  // the native ad format used by TrafficJunky, ExoClick, and similar networks.
+  // Mimics the extended CSS `:has-text()` selector from the eyeo library.
+  const AD_BADGE_RE = /^\s*Ad\s*$/i;
+  const CARD_TAGS = new Set(['LI', 'DIV', 'ARTICLE', 'SPAN', 'A']);
+
+  function hideAdBadgeElements(root) {
+    try {
+      // Walk all small inline elements that could be the "Ad" label
+      (root || document).querySelectorAll(
+        'span,small,em,b,strong,i,label,div'
+      ).forEach(badge => {
+        // Must contain only the text "Ad" (case-insensitive, trimmed)
+        if (!AD_BADGE_RE.test(badge.textContent)) return;
+        // Must be visually small — ad badges are tiny labels
+        const rect = badge.getBoundingClientRect();
+        if (rect.width > 60 || rect.height > 30) return;
+        // Walk up to find the containing card (li, div, article, a)
+        // Stop after 5 levels so we don't hide the whole page
+        let el = badge.parentElement;
+        for (let i = 0; i < 5 && el && el !== document.body; i++) {
+          if (CARD_TAGS.has(el.tagName)) {
+            el.style.setProperty('display', 'none', 'important');
+            return;
+          }
+          el = el.parentElement;
+        }
       });
     } catch (_) {}
   }
@@ -195,6 +249,7 @@
     _lastRun = performance.now();
     injectStyleTag();
     hideElements(root);
+    hideAdBadgeElements(root);
     collapseAdFrames(root);
     closeAdOverlays();
   }
