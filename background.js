@@ -105,6 +105,14 @@ iframe[src*="doubleclick"],iframe[src*="googlesyndication"],
 iframe[src*="adnxs"],iframe[src*="advertising"],
 iframe[src*="trafficjunky"],iframe[src*="exoclick"]
 {display:none!important}
+
+/* Collapse broken images/iframes (blocked by DNR → load fails → empty box) */
+img[src=""],img:not([src]),
+iframe[src=""],iframe:not([src]),
+img[alt="advertisement"],img[alt="ad"],
+object:not([data]),embed:not([src])
+{display:none!important}
+
 video,audio,video source{display:block!important;visibility:visible!important}
 `;
 
