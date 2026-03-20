@@ -141,7 +141,7 @@
   ].join(',');
 
   // Known ad iframe/image src patterns — used for frame collapsing
-  const AD_FRAME_PATTERN = /doubleclick\.net|googlesyndication\.com|adnxs\.com|advertising\.com|adservice\.google|pagead2\.|moatads\.com|rubiconproject\.com|openx\.net|appnexus\.com|criteo\.(com|net)|outbrain\.com|taboola\.com|revcontent\.com|mgid\.com|adsrvr\.org|adgrx\.com|medianet\.com|yieldmanager\.com|spotxchange\.com|sharethrough\.com|33across\.com/i;
+  const AD_FRAME_PATTERN = /doubleclick\.net|googlesyndication\.com|adnxs\.com|advertising\.com|adservice\.google|pagead2\.|moatads\.com|rubiconproject\.com|openx\.net|appnexus\.com|criteo\.(com|net)|outbrain\.com|taboola\.com|revcontent\.com|mgid\.com|adsrvr\.org|adgrx\.com|medianet\.com|yieldmanager\.com|spotxchange\.com|sharethrough\.com|33across\.com|trafficjunky\.(net|com)|exoclick\.com|realsrv\.com|juicyads\.com|plugrush\.com|trafficfactory\.biz|trafficstars\.com|twinred\.com|popads\.net|popcash\.net|ero-advertising\.com|adxpansion\.com|primis\.tech|tsyndicate\.com/i;
 
   // Joined selector string (computed once)
   const SEL = AD_SELECTORS.join(',');
