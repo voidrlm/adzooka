@@ -9,11 +9,7 @@
     "tabs"
   ],
   "host_permissions": [
-    "*://*.youtube.com/*",
-    "*://*.youtu.be/*",
-    "*://*.spotify.com/*",
-    "*://*.spotifycdn.com/*",
-    "*://*.scdn.co/*"
+    "<all_urls>"
   ],
   "background": {
     "service_worker": "background.js",
@@ -37,6 +33,12 @@
       "matches": ["*://*.youtube.com/*", "*://*.spotify.com/*"],
       "js": ["content.js"],
       "run_at": "document_start",
+      "all_frames": true
+    },
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content-general.js"],
+      "run_at": "document_idle",
       "all_frames": true
     }
   ],
