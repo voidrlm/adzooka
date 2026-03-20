@@ -6,28 +6,53 @@
   <link rel="stylesheet" href="popup.css">
 </head>
 <body>
-  <!-- Header -->
-  <div class="header">
-    <div class="logo">
-      <div class="shield">🛡️</div>
-      <div>
-        <div class="title">Adzooka</div>
-        <div class="subtitle" id="status-text">Active</div>
+
+  <!-- Hero -->
+  <div class="hero" id="hero">
+    <div class="hero-glow"></div>
+    <div class="hero-inner">
+      <div class="logo-wrap">
+        <svg class="logo-svg" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M20 3L4 10V21C4 29.5 11 37 20 39C29 37 36 29.5 36 21V10L20 3Z" fill="url(#sg)" stroke="url(#sb)" stroke-width="1.2"/>
+          <path d="M14 20.5L18.5 25L27 16" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+          <defs>
+            <linearGradient id="sg" x1="20" y1="3" x2="20" y2="39" gradientUnits="userSpaceOnUse">
+              <stop offset="0%" stop-color="#e94560"/>
+              <stop offset="100%" stop-color="#9b1d35"/>
+            </linearGradient>
+            <linearGradient id="sb" x1="20" y1="3" x2="20" y2="39" gradientUnits="userSpaceOnUse">
+              <stop offset="0%" stop-color="#ff6b8a"/>
+              <stop offset="100%" stop-color="#e94560"/>
+            </linearGradient>
+          </defs>
+        </svg>
       </div>
+      <div class="hero-text">
+        <div class="brand">Adzooka</div>
+        <div class="tagline" id="status-text">Active</div>
+      </div>
+      <div class="pulse-ring" id="pulse-ring"></div>
+      <div class="status-dot" id="status-dot"></div>
     </div>
-    <div class="status-dot" id="status-dot"></div>
   </div>
 
-  <!-- Site toggle -->
-  <div class="toggle-row">
-    <div class="toggle-info">
-      <div class="toggle-label">Enable on this site</div>
-      <div class="toggle-host" id="toggle-host">—</div>
+  <!-- Toggle card -->
+  <div class="card">
+    <div class="card-left">
+      <div class="card-label">Enable on this site</div>
+      <div class="card-host" id="toggle-host">—</div>
     </div>
     <label class="switch">
       <input type="checkbox" id="site-toggle" checked>
-      <span class="slider"></span>
+      <span class="track">
+        <span class="thumb"></span>
+      </span>
     </label>
+  </div>
+
+  <!-- Footer rule -->
+  <div class="footer-bar">
+    <span class="footer-tag">🛡 Ads get bazooka'd</span>
   </div>
 
   <script src="popup.js"></script>
