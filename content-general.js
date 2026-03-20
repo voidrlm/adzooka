@@ -179,45 +179,78 @@
   }
 
   // ── 2b. "Ad badge" text detector (eyeo :has-text("Ad") equivalent) ────────
-  // Finds thumbnail/card containers that hold a visible "Ad" label badge —
-  // the native ad format used by TrafficJunky, ExoClick, and similar networks.
-  // Mimics the extended CSS `:has-text()` selector from the eyeo library.
+  // Finds the OUTERMOST container of a native ad thumbnail by locating its
+  // "Ad" badge label, then walking UP the tree to find a sized container.
+  // This is what AdBlock's extended CSS :has-text("Ad") selector does.
   const AD_BADGE_RE = /^\s*Ad\s*$/i;
-  const CARD_TAGS = new Set(['LI', 'DIV', 'ARTICLE', 'SPAN', 'A']);
+
+  function collapseContainer(badge) {
+    // Walk up from the badge to find the first element with significant size
+    // (the actual ad card). Go up to 12 levels — some sites nest deeply.
+    let el = badge.parentElement;
+    for (let i = 0; i < 12 && el && el !== document.body && el !== document.documentElement; i++) {
+      const r = el.getBoundingClientRect();
+      // A real ad container has meaningful dimensions (>80px on each side)
+      if (r.width > 80 && r.height > 80) {
+        el.style.setProperty('display', 'none', 'important');
+        return;
+      }
+      el = el.parentElement;
+    }
+  }
 
   function hideAdBadgeElements(root) {
     try {
-      // Walk all small inline elements that could be the "Ad" label
       (root || document).querySelectorAll(
-        'span,small,em,b,strong,i,label,div'
+        'span,small,em,b,strong,i,label,div,a,p'
       ).forEach(badge => {
-        // Must contain only the text "Ad" (case-insensitive, trimmed)
         if (!AD_BADGE_RE.test(badge.textContent)) return;
-        // Must be visually small — ad badges are tiny labels
-        const rect = badge.getBoundingClientRect();
-        if (rect.width > 60 || rect.height > 30) return;
-        // Walk up to find the containing card (li, div, article, a)
-        // Stop after 5 levels so we don't hide the whole page
-        let el = badge.parentElement;
-        for (let i = 0; i < 5 && el && el !== document.body; i++) {
-          if (CARD_TAGS.has(el.tagName)) {
-            el.style.setProperty('display', 'none', 'important');
-            return;
-          }
-          el = el.parentElement;
+        collapseContainer(badge);
+      });
+    } catch (_) {}
+  }
+
+  // ── 3. Element collapsing (AdBlock's primary technique) ──────────────────
+  // When a resource is blocked by DNR it fails to load → fires an error event.
+  // AdBlock listens for these errors and collapses the parent container.
+  // This is what removes the dark empty boxes — not just CSS hiding.
+
+  function collapseBlockedElement(el) {
+    // Hide the element itself
+    el.style.setProperty('display', 'none', 'important');
+    // Walk up to collapse the containing ad card too
+    // (removes the empty dark box + "Ad" label completely)
+    let parent = el.parentElement;
+    for (let i = 0; i < 8 && parent && parent !== document.body; i++) {
+      const r = parent.getBoundingClientRect();
+      if (r.width > 80 && r.height > 80) {
+        parent.style.setProperty('display', 'none', 'important');
+        return;
+      }
+      parent = parent.parentElement;
+    }
+  }
+
+  function attachCollapseListeners(root) {
+    try {
+      // Images — blocked by DNR → src fails → error fires
+      (root || document).querySelectorAll('img,iframe,object,embed,video').forEach(el => {
+        el.addEventListener('error', () => collapseBlockedElement(el), { once: true });
+        // Also collapse immediately if already broken (naturalWidth === 0)
+        if (el.tagName === 'IMG' && el.complete && el.naturalWidth === 0 && el.src) {
+          collapseBlockedElement(el);
         }
       });
     } catch (_) {}
   }
 
-  // ── 3. Frame collapsing (eyeo approach) ──────────────────────────────────
-  // Hides iframes and images whose src points at a known ad domain.
+  // ── 4. Frame collapsing for known ad src domains ──────────────────────────
   function collapseAdFrames(root) {
     try {
-      (root || document).querySelectorAll('iframe[src],img[src]').forEach(el => {
-        const src = el.getAttribute('src') || '';
+      (root || document).querySelectorAll('iframe[src],img[src],object[data],embed[src]').forEach(el => {
+        const src = el.getAttribute('src') || el.getAttribute('data') || '';
         if (src && AD_FRAME_PATTERN.test(src)) {
-          el.style.setProperty('display', 'none', 'important');
+          collapseBlockedElement(el);
         }
       });
     } catch (_) {}
@@ -251,6 +284,7 @@
     hideElements(root);
     hideAdBadgeElements(root);
     collapseAdFrames(root);
+    attachCollapseListeners(root);
     closeAdOverlays();
   }
 
