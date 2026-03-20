@@ -6,19 +6,28 @@
   <link rel="stylesheet" href="popup.css">
 </head>
 <body>
+  <!-- Header -->
   <div class="header">
     <div class="logo">
-      <div class="shield">&#128737;</div>
+      <div class="shield">🛡️</div>
       <div>
         <div class="title">Adzooka</div>
         <div class="subtitle" id="status-text">Active</div>
       </div>
     </div>
+    <div class="status-dot" id="status-dot"></div>
   </div>
 
-  <div class="info-row">
-    <div class="info-chip">&#9654; YouTube ads blocked</div>
-    <div class="info-chip">&#9654; Spotify ads blocked</div>
+  <!-- Site toggle -->
+  <div class="toggle-row">
+    <div class="toggle-info">
+      <div class="toggle-label">Enable on this site</div>
+      <div class="toggle-host" id="toggle-host">—</div>
+    </div>
+    <label class="switch">
+      <input type="checkbox" id="site-toggle" checked>
+      <span class="slider"></span>
+    </label>
   </div>
 
   <script src="popup.js"></script>
