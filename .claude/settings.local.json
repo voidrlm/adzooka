@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:adblock.turtlecute.org)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "WebFetch(domain:adblock-tester.com)",
+      "WebFetch(domain:cdn.ravenjs.com)"
+    ]
+  }
+}

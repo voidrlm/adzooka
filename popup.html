@@ -6,66 +6,19 @@
   <link rel="stylesheet" href="popup.css">
 </head>
 <body>
-  <!-- Header -->
   <div class="header">
     <div class="logo">
-      <div class="shield" id="shield-icon">&#128737;</div>
+      <div class="shield">&#128737;</div>
       <div>
         <div class="title">Adzooka</div>
-        <div class="subtitle" id="status-text">Scanning…</div>
+        <div class="subtitle" id="status-text">Active</div>
       </div>
     </div>
-    <label class="toggle-switch" title="Enable / Disable on this site">
-      <input type="checkbox" id="toggle-site" checked>
-      <span class="slider"></span>
-    </label>
   </div>
 
-  <!-- Stats row -->
-  <div class="stats-row">
-    <div class="stat-box">
-      <div class="stat-value" id="blocked-tab">—</div>
-      <div class="stat-label">This page</div>
-    </div>
-    <div class="stat-box">
-      <div class="stat-value" id="blocked-total">—</div>
-      <div class="stat-label">All time</div>
-    </div>
-  </div>
-
-  <!-- Blocked categories (cosmetic summary) -->
-  <div class="categories" id="categories-row">
-    <span class="cat-chip" id="cat-net"  title="Network-level blocks">&#128275; <span id="cat-net-n">0</span> network</span>
-    <span class="cat-chip" id="cat-cos"  title="Cosmetically hidden elements">&#128065; <span id="cat-cos-n">0</span> elements</span>
-    <span class="cat-chip" id="cat-pop"  title="Popups blocked">&#128683; <span id="cat-pop-n">0</span> popups</span>
-  </div>
-
-  <!-- Current domain -->
-  <div class="domain-row">
-    <div class="domain-pill">
-      <span class="dot" id="site-dot"></span>
-      <span id="current-domain">—</span>
-    </div>
-    <button id="btn-allow-site" class="btn-sm btn-allow">Allow site</button>
-  </div>
-
-  <!-- Custom filter -->
-  <div class="section-title">Block a domain</div>
-  <div class="input-row">
-    <input type="text" id="custom-domain" placeholder="example-ads.com" spellcheck="false" autocomplete="off">
-    <button id="btn-add-filter" class="btn-sm btn-block">Block</button>
-  </div>
-
-  <!-- Custom filter list -->
-  <div id="filter-panel">
-    <div class="section-title">Custom filters <span id="filter-count" class="badge">0</span></div>
-    <ul id="custom-filter-list" class="filter-list"></ul>
-  </div>
-
-  <!-- Footer -->
-  <div class="footer">
-    <button id="btn-reset" class="btn-ghost">Reset stats</button>
-    <span class="version">v2.0.0</span>
+  <div class="info-row">
+    <div class="info-chip">&#9654; YouTube ads blocked</div>
+    <div class="info-chip">&#9654; Spotify ads blocked</div>
   </div>
 
   <script src="popup.js"></script>

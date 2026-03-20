@@ -2,20 +2,18 @@
   "manifest_version": 3,
   "name": "Adzooka",
   "version": "3.0.0",
-  "description": "R.I.P. ads, they got hit by a bazooka.",
+  "description": "YouTube & Spotify ad blocker — clean and focused.",
   "permissions": [
     "declarativeNetRequest",
-    "declarativeNetRequestWithHostAccess",
-    "declarativeNetRequestFeedback",
-    "storage",
-    "unlimitedStorage",
-    "tabs",
     "scripting",
-    "webNavigation",
-    "alarms"
+    "tabs"
   ],
   "host_permissions": [
-    "<all_urls>"
+    "*://*.youtube.com/*",
+    "*://*.youtu.be/*",
+    "*://*.spotify.com/*",
+    "*://*.spotifycdn.com/*",
+    "*://*.scdn.co/*"
   ],
   "background": {
     "service_worker": "background.js",
@@ -31,8 +29,13 @@
     },
     {
       "matches": ["<all_urls>"],
-      "js": ["content.js"],
       "css": ["cosmetic.css"],
+      "run_at": "document_start",
+      "all_frames": true
+    },
+    {
+      "matches": ["*://*.youtube.com/*", "*://*.spotify.com/*"],
+      "js": ["content.js"],
       "run_at": "document_start",
       "all_frames": true
     }
@@ -57,8 +60,8 @@
   },
   "web_accessible_resources": [
     {
-      "resources": ["scriptlets.js", "noop-1s.mp4"],
-      "matches": ["<all_urls>"]
+      "resources": ["noop-1s.mp4"],
+      "matches": ["*://*.spotify.com/*"]
     }
   ],
   "icons": {

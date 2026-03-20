@@ -1,32 +1,29 @@
-/* ─── Adzooka — Static Cosmetic CSS v3 ────────────────────────────────────────
-   This file is injected at document_start before any page JS runs.
-   Rules here are conservative and specific — no broad [class*="ad-"] patterns
-   that cause false positives. The heavy lifting is done by the filter-list CSS
-   that background.js fetches from EasyList / uBO and stores in chrome.storage.
-   ─────────────────────────────────────────────────────────────────────────── */
+/* Adzooka — Cosmetic ad rules (injected at document_start on all pages) */
 
-/* ── Google AdSense ───────────────────────────────────────────────────────── */
-ins.adsbygoogle,
+/* ── Standard ad detection classes (used by all major ad networks) ────────── */
+.textads,
+.adsbox,
+.banner_ads,
+.adbox,
+.ADBox,
+.adbox-wrapper,
+.adSocial,
+.ad-banner,
+.ad-container,
+.ad-slot,
+.ad-wrapper,
 .adsbygoogle,
+ins.adsbygoogle,
 [data-ad-client],
 [data-ad-slot],
-[data-ad-unit-id],
 div[id^="google_ads_"],
 iframe[id^="google_ads_iframe"],
 iframe[id^="aswift_"],
-#google-sfp-ads { display: none !important; }
-
-/* ── Google Publisher Tag / DFP / GAM ────────────────────────────────────── */
 [id^="div-gpt-ad"],
-[data-google-query-id],
-[data-google-av-cxn] { display: none !important; }
-
-/* ── Google Search ads ────────────────────────────────────────────────────── */
 #tads,
 #tadsb,
-#bottomads,
-[data-text-ad],
-.commercial-unit-desktop-top { display: none !important; }
+#bottomads { display: none !important; }
+
 
 /* ── YouTube ads ──────────────────────────────────────────────────────────── */
 #masthead-ad,
@@ -47,89 +44,25 @@ ytd-rich-item-renderer:has(ytd-ad-slot-renderer),
 .ytp-ad-progress,
 .ytp-ad-progress-list { display: none !important; }
 
-/* ── Outbrain ─────────────────────────────────────────────────────────────── */
-.OUTBRAIN,
-.ob-widget,
-.ob-smartfeed-wrapper,
-[id^="outbrain_"] { display: none !important; }
+/* ── Banner images by filename pattern ────────────────────────────────────── */
+img[src*="pr_advertising_ads_banner"],
+img[src*="ads_banner"],
+img[src*="banner_ads"],
+img[src*="/banners/"],
+object[data*="advertising"],
+embed[src*="advertising"] { display: none !important; }
 
-/* ── Taboola ──────────────────────────────────────────────────────────────── */
-[id^="taboola-"],
-[class^="taboola-"],
-.trc_rbox_div { display: none !important; }
+/* ── Yandex ad containers ─────────────────────────────────────────────────── */
+[id^="yandex_rtb_"],
+.yandex-ad,
+[id^="Ya_"],
+#yandex_ad { display: none !important; }
 
-/* ── Twitter / X promoted posts ──────────────────────────────────────────── */
-[data-testid="placementTracking"],
-[aria-label="Promoted Tweet"] { display: none !important; }
+/* ── Google Tag Manager / Analytics containers ────────────────────────────── */
+[id^="google_tag_"],
+.google-tag-container { display: none !important; }
 
-/* ── ARIA-labelled ad slots ───────────────────────────────────────────────── */
-[aria-label="Advertisement"],
-[aria-label="advertisement"],
-[aria-label="Sponsored"],
-[aria-label="sponsored"],
-[role="complementary"][aria-label*="Ad"],
-[role="complementary"][aria-label*="Sponsor"] { display: none !important; }
-
-/* ── Ad iframes from known networks ──────────────────────────────────────── */
-iframe[src*="doubleclick.net"],
-iframe[src*="googlesyndication.com"],
-iframe[src*="googleadservices.com"],
-iframe[src*="adnxs.com"],
-iframe[src*="openx.net"],
-iframe[src*="rubiconproject.com"],
-iframe[src*="pubmatic.com"],
-iframe[src*="criteo.com"],
-iframe[src*="taboola.com"],
-iframe[src*="outbrain.com"],
-iframe[src*="media.net"],
-iframe[src*="exoclick.com"],
-iframe[src*="trafficjunky.net"],
-iframe[src*="amazon-adsystem.com"],
-iframe[src*="smartadserver.com"],
-iframe[src*="flashtalking.com"],
-iframe[src*="serving-sys.com"],
-iframe[src*="advertising.com"],
-iframe[src*="casalemedia.com"],
-iframe[src*="gumgum.com"],
-iframe[src*="juicyads.com"],
-iframe[src*="trafficfactory.biz"],
-iframe[src*="plugrush.com"],
-iframe[src*="hilltopads.net"],
-iframe[src*="adnium.com"],
-iframe[src*="adsterra.com"],
-iframe[src*="propellerads.com"],
-iframe[src*="popcash.net"],
-iframe[src*="popads.net"] { display: none !important; }
-
-/* ── 1×1 tracking pixels ─────────────────────────────────────────────────── */
-img[width="1"][height="1"],
-img[width="0"][height="0"] { display: none !important; }
-
-/* ── Anti-adblock nag elements ────────────────────────────────────────────── */
-.adblock-notice,
-.adblock-overlay,
-.adblock-wall,
-.ad-block-notice,
-#adblock-notice,
-#adblock-overlay { display: none !important; }
-
-/* ── Reddit promoted posts ────────────────────────────────────────────────── */
-[data-promoted="true"],
-.promotedlink { display: none !important; }
-
-/* ── Criteo ───────────────────────────────────────────────────────────────── */
-[id^="criteo-"],
-iframe[src*="criteo.com"] { display: none !important; }
-
-/* ── Amazon sponsored products ────────────────────────────────────────────── */
-.ape-ad-container,
-#ape_Detail_dp_placement { display: none !important; }
-
-/* ─────────────────────────────────────────────────────────────────────────────
-   SAFETY OVERRIDE — must be last.
-   Ensures native <video> and <audio> elements are NEVER hidden by any rule
-   above (or by the filter-list CSS injected by content.js).
-   ─────────────────────────────────────────────────────────────────────────── */
+/* ── Safety override — real video/audio must never be hidden ─────────────── */
 video,
 audio,
 video source { display: block !important; visibility: visible !important; }
