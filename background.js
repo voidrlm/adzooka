@@ -107,8 +107,6 @@ iframe[src*="trafficjunky"],iframe[src*="exoclick"]
 {display:none!important}
 
 /* Collapse broken images/iframes (blocked by DNR → load fails → empty box) */
-img[src=""],img:not([src]),
-iframe[src=""],iframe:not([src]),
 img[alt="advertisement"],img[alt="ad"],
 object:not([data]),embed:not([src])
 {display:none!important}
