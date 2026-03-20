@@ -87,4 +87,39 @@
     });
   } catch (_) {}
 
+  // ── 7. Sentry / Raven noop ─────────────────────────────────────────────────
+  // Handles both old Raven.js API and new Sentry SDK
+  try {
+    const noopSentry = {
+      config:           () => noopSentry,
+      install:          () => noopSentry,
+      captureException: () => {},
+      captureMessage:   () => {},
+      captureEvent:     () => {},
+      addBreadcrumb:    () => {},
+      setUser:          () => {},
+      setTag:           () => {},
+      setExtra:         () => {},
+      configureScope:   () => {},
+      withScope:        () => {},
+      init:             () => {},
+      getCurrentHub:    () => ({ getClient: () => null }),
+    };
+    Object.defineProperty(window, 'Raven',  { get: () => noopSentry, set() {}, configurable: true });
+    Object.defineProperty(window, 'Sentry', { get: () => noopSentry, set() {}, configurable: true });
+  } catch (_) {}
+
+  // ── 8. Bugsnag noop ────────────────────────────────────────────────────────
+  // Handles both old bugsnag("apiKey") API and new Bugsnag.start() API
+  try {
+    const noopBugsnag = function () { return noopBugsnag; };
+    noopBugsnag.notify          = () => {};
+    noopBugsnag.notifyException = () => {};
+    noopBugsnag.refresh         = () => {};
+    noopBugsnag.start           = () => noopBugsnag;
+    noopBugsnag.createClient    = () => noopBugsnag;
+    Object.defineProperty(window, 'bugsnag',  { get: () => noopBugsnag, set() {}, configurable: true });
+    Object.defineProperty(window, 'Bugsnag',  { get: () => noopBugsnag, set() {}, configurable: true });
+  } catch (_) {}
+
 })();

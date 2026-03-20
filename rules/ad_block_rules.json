@@ -176,6 +176,8 @@
 
   {"id":144,"priority":1,"action":{"type":"block"},"condition":{"urlFilter":"||sentry.io^","resourceTypes":["script","xmlhttprequest","other"]}},
   {"id":145,"priority":1,"action":{"type":"block"},"condition":{"urlFilter":"||bugsnag.com^","resourceTypes":["script","xmlhttprequest","other"]}},
+  {"id":147,"priority":1,"action":{"type":"block"},"condition":{"urlFilter":"||cdn.ravenjs.com^","resourceTypes":["script","xmlhttprequest","other"]}},
+  {"id":148,"priority":1,"action":{"type":"block"},"condition":{"urlFilter":"||d2wy8f7a9ursnm.cloudfront.net^","resourceTypes":["script","xmlhttprequest","other"]}},
 
-  {"id":146,"priority":1,"action":{"type":"block"},"condition":{"urlFilter":"/pr_advertising_ads_banner","resourceTypes":["image","media","other"]}}
+  {"id":146,"priority":1,"action":{"type":"block"},"condition":{"urlFilter":"||adblock-tester.com/banners/"}}
 ]

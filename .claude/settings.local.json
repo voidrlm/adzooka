@@ -5,7 +5,8 @@
       "WebFetch(domain:github.com)",
       "WebFetch(domain:raw.githubusercontent.com)",
       "WebFetch(domain:adblock-tester.com)",
-      "WebFetch(domain:cdn.ravenjs.com)"
+      "WebFetch(domain:cdn.ravenjs.com)",
+      "WebFetch(domain:d2wy8f7a9ursnm.cloudfront.net)"
     ]
   }
 }
