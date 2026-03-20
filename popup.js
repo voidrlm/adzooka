@@ -2,6 +2,7 @@
 (async () => {
   const $status = document.getElementById('status-text');
   const $dot    = document.getElementById('status-dot');
+  const $pulse  = document.getElementById('pulse-ring');
   const $host   = document.getElementById('toggle-host');
   const $toggle = document.getElementById('site-toggle');
 
