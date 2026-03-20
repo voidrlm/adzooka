@@ -1,31 +1,223 @@
-/* Adzooka — Cosmetic ad rules (injected at document_start on all pages) */
+/* Adzooka — Cosmetic ad rules (injected at document_start on all pages)    */
+/* Selectors derived from EasyList / EasyPrivacy cosmetic filter lists        */
 
-/* ── Standard ad detection classes (used by all major ad networks) ────────── */
-.textads,
-.adsbox,
-.banner_ads,
-.adbox,
-.ADBox,
-.adbox-wrapper,
-.adSocial,
-.ad-banner,
-.ad-container,
-.ad-slot,
-.ad-wrapper,
-.adsbygoogle,
-ins.adsbygoogle,
-[data-ad-client],
-[data-ad-slot],
-div[id^="google_ads_"],
-iframe[id^="google_ads_iframe"],
-iframe[id^="aswift_"],
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/* 1. GENERIC AD CLASSES — used across thousands of sites                      */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Common class names */
+.ad, #ad, .ads, #ads, .adv, #adv,
+.ad-block, .ad_block,
+.ad-box, #ad-box, .ad_box,
+.ad-container, #ad-container, .ad_container,
+.ad-content, .ad_content,
+.ad-footer, .ad_footer,
+.ad-frame, .ad_frame,
+.ad-header, .ad_header,
+.ad-holder, .ad_holder,
+.ad-image, .ad_image,
+.ad-inner, .ad_inner,
+.ad-label, .ad_label,
+.ad-leaderboard, .ad_leaderboard,
+.ad-left, .ad_left,
+.ad-link, .ad_link,
+.ad-list, .ad_list,
+.ad-medium, .ad_medium,
+.ad-notice, .ad_notice,
+.ad-placeholder, .ad_placeholder,
+.ad-right, .ad_right,
+.ad-row, .ad_row,
+.ad-section, .ad_section,
+.ad-sidebar, .ad_sidebar,
+.ad-size, .ad_size,
+.ad-slot, #ad-slot, .ad_slot,
+.ad-space, .ad_space,
+.ad-square, .ad_square,
+.ad-tag, .ad_tag,
+.ad-text, .ad_text,
+.ad-top, .ad_top,
+.ad-tower, .ad_tower,
+.ad-unit, #ad-unit, .ad_unit,
+.ad-wrapper, #ad-wrapper, .ad_wrapper,
+.ad-zone, .ad_zone,
+.ads-bar, .ads_bar,
+.ads-container, .ads_container,
+.ads-inner, .ads_inner,
+.ads-section, .ads_section,
+.ads-sidebar, .ads_sidebar,
+.ads-slot, .ads_slot,
+.ads-widget, .ads_widget,
+.ads-wrapper, .ads_wrapper,
+.adarea, .adArea, #adArea,
+.adbar, .adBar,
+.adbanner, .adBanner, #adBanner,
+.adblock-banner,
+.adbox, .adBox, #adBox, .ADBox,
+.adchoice, .adChoice, .ad-choice, .AdChoicesDiv,
+.adcolumn, .adColumn,
+.adcontainer, .adContainer, #adContainer,
+.adcontent, .adContent,
+.addfooter,
+.addiv,
+.adframe, .adFrame,
+.adhead,
+.adholder, .adHolder,
+.adimage, .adImage,
+.adinfo,
+.adinner,
+.adkit,
+.adlabel, .adLabel,
+.adleaderboard,
+.adlink,
+.adlinkwrapper,
+.adlist,
+.admarker,
+.admob,
+.admodule,
+.adpane,
+.adplace, .adPlace, #adPlace,
+.adplaceholder,
+.adplacement,
+.adposter,
+.adrow,
+.adsbox, #adsbox,
+.adsense, #adsense,
+.adserver,
+.adset,
+.adshell,
+.adshow,
+.adside, .adSide,
+.adsidebar,
+.adskyscraper,
+.adslot, .adSlot, #adSlot,
+.adspace, .adSpace, #adSpace,
+.adsponsored,
+.adspot,
+.adtag, .adTag,
+.adtext,
+.adtile,
+.adtop,
+.adunit, .adUnit, #adUnit,
+.advert, #advert, .adverts, #adverts,
+.advert-box, .advert_box,
+.advert-container, .advert_container,
+.advert-header, .advert_header,
+.advertbox, .advertBox,
+.advertise, .advertise-here,
+.advertisement, #advertisement, .Advertisement,
+.advertisement-text, .advertisement_text,
+.advertisements, #advertisements,
+.advertiser-box,
+.advertorial, #advertorial,
+.adview,
+.adwrap, .adWrap,
+.adwrapper, .adWrapper,
+.adzone, .adZone,
+.banner_ads, .banner-ads, .bannerAds,
+.banneradsense,
+.banner-ad, .banner_ad,
+.block-ad, .block_ad, #block-ad,
+.block-ads, .block_ads,
+.bottomad, .bottomAd, #bottomAd,
+.bottomads, #bottomads,
+.centerad,
+.commercial-unit-desktop-top,
+.display-ad,
+.div-gpt-ad,
+.dfp-ad, .dfp_ad,
+.dfp-unit,
+.embed-ad,
+.footer-ad, .footer_ad, #footer-ad,
+.google-ad, .google_ad,
+.google-ads, .google_ads,
+.googleAd, .GoogleAd,
+.googleads, #googleads,
+.header-ad, .header_ad,
+.horizontal-ad,
+.horizontal_ad,
+.inarticle-ad,
+.inline-ad, .inline_ad,
+.inside-ad,
+.interstitial-ad,
+.leader-ad,
+.leaderboard-ad, .leaderboard_ad,
+.leaderboard-ads,
+.left-ad, .left_ad,
+.medium-rectangle,
+.middle-ad, .middle_ad,
+.module-ad, .module_ad,
+.mpu-ad, .mpu_ad, .mpu,
+.native-ad, .native_ad,
+.nativead, .nativeAd,
+.outstream-ad,
+.page-ad, .page_ad,
+.paid-content,
+.partner-ad, .partner_ad,
+.post-ad, .post_ad,
+.promo-ad, .promo_ad,
+.rectangle-ad,
+.responsive-ad,
+.right-ad, .right_ad,
+.rhs-ad, #rhs-ad,
+.sidebar-ad, .sidebar_ad,
+.site-ad, .site_ad,
+.skyscraper, .skyscraper-ad,
+.slot-ad, .slot_ad,
+.sponsor-ad, .sponsor_ad,
+.sponsor-area,
+.sponsor-block,
+.sponsor-box,
+.sponsor-content,
+.sponsor-label,
+.sponsor-link,
+.sponsored, .Sponsored, #sponsored,
+.sponsored-ad, .sponsored_ad,
+.sponsored-area,
+.sponsored-block,
+.sponsored-container,
+.sponsored-content, #sponsored-content,
+.sponsored-item,
+.sponsored-label,
+.sponsored-link,
+.sponsored-links, .sponsoredLinks, #sponsoredLinks,
+.sponsored-post, .sponsored_post,
+.sponsored-result,
+.sponsored-widget,
+.sponsoredbadge,
+.sponsoredby,
+.sponsoredcontent,
+.sponsoredtext,
+.sticky-ad, .sticky_ad,
+.text-ad, .text_ad, .textad, .textAd,
+.textads, .text-ads, #text-ads,
+.top-ad, .top_ad, #top-ad,
+.topads, #topads,
+.tower-ad,
+.under-ad,
+.vertical-ad,
+.wide-ad { display: none !important; }
+
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/* 2. GOOGLE ADSENSE / DFP / GPT                                               */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+
+.adsbygoogle, ins.adsbygoogle,
+[data-ad-client], [data-ad-slot], [data-ad-unit-id],
+[data-google-query-id],
+div[id^="google_ads_"], div[id^="google_vignette"],
+iframe[id^="google_ads_iframe"], iframe[id^="aswift_"],
 [id^="div-gpt-ad"],
-#tads,
-#tadsb,
-#bottomads { display: none !important; }
+[id^="ad-slot-"], [id^="ad_slot_"],
+#tads, #tadsb, #tads-b, #bottomads, #topads,
+.com-google-ads,
+#commercial,
+#adsensecontainer,
+#google-ads, .google-ads-container { display: none !important; }
 
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/* 3. YOUTUBE ADS                                                               */
+/* ═══════════════════════════════════════════════════════════════════════════ */
 
-/* ── YouTube ads ──────────────────────────────────────────────────────────── */
 #masthead-ad,
 #player-ads,
 .ytd-ad-slot-renderer,
@@ -38,91 +230,187 @@ ytd-display-ad-renderer,
 ytd-statement-banner-renderer,
 yt-mealbar-promo-renderer,
 ytd-rich-item-renderer:has(ytd-ad-slot-renderer),
+ytd-ad-slot-renderer,
 .ytp-ad-module,
 .ytp-ad-overlay-container,
 .ytp-ad-text-overlay,
 .ytp-ad-progress,
-.ytp-ad-progress-list { display: none !important; }
+.ytp-ad-progress-list,
+.ytp-ad-image-overlay,
+.ytp-ad-persistent-progress-bar-container,
+.video-ads.ytp-ad-module,
+#player-container-id .ytp-ad-player-overlay,
+ytd-banner-promo-renderer,
+ytd-compact-promoted-video-renderer,
+ytd-promoted-sparkles-text-search-renderer { display: none !important; }
 
-/* ── Banner images by filename pattern ────────────────────────────────────── */
-img[src*="pr_advertising_ads_banner"],
-img[src*="ads_banner"],
-img[src*="banner_ads"],
-img[src*="/banners/"],
-object[data*="advertising"],
-embed[src*="advertising"] { display: none !important; }
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/* 4. FACEBOOK / META ADS                                                      */
+/* ═══════════════════════════════════════════════════════════════════════════ */
 
-/* ── Yandex ad containers ─────────────────────────────────────────────────── */
-[id^="yandex_rtb_"],
-.yandex-ad,
-[id^="Ya_"],
-#yandex_ad { display: none !important; }
-
-/* ── Google Tag Manager / Analytics containers ────────────────────────────── */
-[id^="google_tag_"],
-.google-tag-container { display: none !important; }
-
-/* ── Facebook / Meta ads ──────────────────────────────────────────────────── */
 [data-pagelet^="FeedUnit"][data-testid*="ad"],
+span[id^="feedsubtitle_"] + span:has([aria-label="Sponsored"]),
+[aria-label="Sponsored"][role="link"],
 div[role="feed"] > div[data-pagelet*="Sponsored"],
-span[data-lexical-text="true"] + span[aria-label*="Sponsored"],
-a[aria-label*="Sponsored"] { display: none !important; }
+._7jyg._7jyh,
+a[aria-label^="Sponsored"] { display: none !important; }
 
-/* ── Twitter / X promoted tweets ─────────────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/* 5. TWITTER / X PROMOTED CONTENT                                             */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+
 [data-testid="placementTracking"],
+article:has([data-testid="promotedIndicator"]),
 div[data-testid="tweet"]:has([data-testid="promotedIndicator"]),
-article:has([data-testid="promotedIndicator"]) { display: none !important; }
+[data-testid="tweetSponsorshipLabel"],
+[data-testid="trend"]:has([data-testid="trendMetadata"]) { display: none !important; }
 
-/* ── Reddit promoted posts ────────────────────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/* 6. REDDIT PROMOTED / SPONSORED                                              */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+
 [data-promoted="true"],
 shreddit-ad-post,
 div[data-testid*="promoted"],
-.promotedlink { display: none !important; }
+.promotedlink,
+[data-ks-item="ad-post"],
+.ad-container.promoted-link { display: none !important; }
 
-/* ── Taboola / Outbrain sponsored content ─────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/* 7. TABOOLA / OUTBRAIN NATIVE ADS                                            */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+
 #taboola-below-article-thumbnails,
 #taboola-right-rail-thumbnails,
 #taboola-above-article-thumbnails,
-.trc_rbox_div,
-.trc_related_container,
+#taboola-below-main-column-thumbnails,
 [id^="taboola-"],
-[id^="outbrain_"],
-.OUTBRAIN,
+.trc_rbox_div, .trc_rbox_border_elm, .trc_related_container,
+[class^="trc_"], [id^="trc_"],
+.taboola-placeholder,
+[id^="outbrain_"], [class^="outbrain_"],
+.OUTBRAIN, .ob-widget, .ob-smartfeed-wrapper,
 [data-widget-id^="OB_"],
-.ob-widget { display: none !important; }
+#ob_holder, .ob_holder,
+.ob-p, .ob-rec-image, .ob-text-content,
+[aria-label*="by Outbrain"],
+[aria-label*="by Taboola"] { display: none !important; }
 
-/* ── Criteo retargeting widgets ───────────────────────────────────────────── */
-.criteo-widget,
-[id^="criteo_"] { display: none !important; }
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/* 8. AMAZON SPONSORED / ADS                                                   */
+/* ═══════════════════════════════════════════════════════════════════════════ */
 
-/* ── Amazon ads ──────────────────────────────────────────────────────────── */
-[cel_widget_id*="MAIN-HERO_R2-"],
-.ape-sponsored-label,
 div[data-component-type="sp-sponsored-result"],
-[data-index][aria-label*="Sponsored"] { display: none !important; }
+.ape-sponsored-label,
+.s-result-item[data-asin]:has(.puis-sponsored-label-text),
+[data-ad-details],
+div[cel_widget_id*="SEARCH_RESULTS-FOOTER_TOOLBAR"],
+.adsonwidget { display: none !important; }
 
-/* ── Generic popup overlays ──────────────────────────────────────────────── */
-/* Blocks fixed/absolute full-screen overlay divs commonly used for ad popovers */
-div[class*="popup"][style*="position: fixed"],
-div[class*="overlay"][style*="position: fixed"],
-div[class*="modal"][style*="position: fixed"][style*="z-index"],
-div[id*="popup-overlay"],
-div[id*="ad-overlay"],
-div[id*="adOverlay"],
-.ad-popup-wrapper,
-.popup-ad,
-#popup-ad,
-#ad-popup { display: none !important; }
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/* 9. CRITEO RETARGETING                                                        */
+/* ═══════════════════════════════════════════════════════════════════════════ */
 
-/* ── Sticky/floating ad banners ──────────────────────────────────────────── */
-[class*="sticky-ad"],
-[class*="ad-sticky"],
-[id*="sticky-ad"],
-.ads-sticky-banner,
-div[class*="float-ad"],
-div[id*="float-ad"] { display: none !important; }
+.criteo-widget, [id^="criteo_"],
+[id^="cto_"], .cto_optout_link,
+#criteo-placeholder { display: none !important; }
 
-/* ── Safety override — real video/audio must never be hidden ─────────────── */
-video,
-audio,
-video source { display: block !important; visibility: visible !important; }
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/* 10. YANDEX / VK ADS                                                         */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+
+[id^="yandex_rtb_"], .yandex-ad, [id^="Ya_"], #yandex_ad,
+.i-bem[data-block="b-direct"],
+.b-spec-adv, .serp-adv,
+[class^="VkAds"], [id^="vk_ads"] { display: none !important; }
+
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/* 11. BUYSELLADS / CARBON ADS                                                  */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+
+#carbonads, .carbon-wrap, .carbon-img, .carbon-text,
+#bsa_banner, .bsa_it, [id^="bsa_zone_"],
+.carbonads { display: none !important; }
+
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/* 12. SKIMLINKS / AFFILIATE DISCLOSURES                                        */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+
+.skimlinks-unlinked, .skimlinks-tracking,
+[class*="skimwords"],
+.aff-disclosure { display: none !important; }
+
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/* 13. GENERIC POPUP / OVERLAY ADS                                             */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+
+#popup-ad, #ad-popup, #adPopup, #adOverlay, #ad-overlay, #adoverlay,
+.popup-ad, .ad-popup-wrapper, .ad-popup, .popup-ad-container,
+[id*="popup-overlay"], [id*="ad-overlay"], [id*="adOverlay"],
+[class*="popup-ad"], [class*="ad-popup"],
+.overlay-ad, .ad-overlay, .interstitial-container,
+#interstitial-ad, .interstitial-ad,
+#newsletter-popup, .newsletter-popup,
+.modal-ad, .ad-modal,
+div[id*="SponsoredPopup"],
+.lightbox-ad, #lightbox-ad { display: none !important; }
+
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/* 14. STICKY / FLOATING AD BARS                                               */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+
+[class*="sticky-ad"], [class*="ad-sticky"], [id*="sticky-ad"],
+.ads-sticky-banner, div[class*="float-ad"], div[id*="float-ad"],
+.fixed-ad, #fixed-ad, [class*="fixed-ad"],
+.anchored-ad, .anchor-ad, [id*="anchor-ad"],
+#adhesion-ad, .adhesion-ad, .adhesion-unit,
+.ad-adhesion, .ad-anchor { display: none !important; }
+
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/* 15. BANNER IMAGES BY URL PATTERN                                            */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+
+img[src*="/ads/"], img[src*="/advert/"], img[src*="/banners/"],
+img[src*="ads_banner"], img[src*="banner_ads"],
+img[src*="pr_advertising_ads_banner"],
+img[src*="advertising"], img[src*="/ad_images/"],
+object[data*="advertising"], embed[src*="advertising"],
+iframe[src*="doubleclick"], iframe[src*="googlesyndication"],
+iframe[src*="adnxs"], iframe[src*="advertising"] { display: none !important; }
+
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/* 16. GOOGLE TAG MANAGER / ANALYTICS CONTAINERS                               */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+
+[id^="google_tag_"], .google-tag-container,
+#gtm-placeholder, .gtm-container { display: none !important; }
+
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/* 17. MEDIA.NET / OTHER AD NETWORKS                                           */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+
+[id^="dv-gpt-ad"], [class^="dv-gpt-"],
+#mn_ad, #mn-ad, .mn-ad,
+[id^="mn_"], [id^="media_net_"],
+.mgid-container, [id^="mgid_container"],
+[id^="mgid-"],
+.zergnet-widget, #zergnet,
+#ppjl, .ppjl { display: none !important; }
+
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/* 18. COOKIE BANNERS / GDPR CONSENT (optional — remove if you want these)    */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/* Uncomment the block below to also hide cookie consent popups:
+#cookie-banner, .cookie-banner, #cookieBanner,
+#cookie-notice, .cookie-notice,
+#cookie-consent, .cookie-consent,
+#gdpr-banner, .gdpr-banner,
+[id*="cookie-bar"], [class*="cookie-bar"],
+[id*="consent-modal"], [class*="consent-modal"] { display: none !important; }
+*/
+
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/* SAFETY: real media must never be hidden                                     */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+
+video, audio, video source { display: block !important; visibility: visible !important; }
