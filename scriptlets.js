@@ -115,4 +115,28 @@
     });
   } catch (_) {}
 
+  // ── 9. Push notification permission blocking ───────────────────────────────
+  // Overrides Notification.requestPermission so ad/tracking scripts can never
+  // prompt the user for push notification access. Returns 'denied' immediately.
+  try {
+    if ('Notification' in window) {
+      Notification.requestPermission = function () {
+        return Promise.resolve('denied');
+      };
+    }
+  } catch (_) {}
+
+  // ── 10. window.open popup blocker ─────────────────────────────────────────
+  // Intercepts window.open calls and blocks those targeting known ad/popup
+  // networks. Passes all other calls through unchanged so legitimate popups
+  // (e.g. OAuth, payment flows) still work.
+  try {
+    const _origOpen = window.open.bind(window);
+    const AD_POPUP_PATTERN = /doubleclick\.net|googlesyndication\.com|adnxs\.com|advertising\.com|popads\.net|popcash\.net|exoclick\.com|trafficjunky\.net|adcash\.com|propellerads\.com|ad\.fly|adf\.ly|linkbucks\.com|adfly\.com|clkmon\.com|clicksfly\.com|ouo\.io/i;
+    window.open = function (url, target, features) {
+      if (url && AD_POPUP_PATTERN.test(String(url))) return null;
+      return _origOpen(url, target, features);
+    };
+  } catch (_) {}
+
 })();
