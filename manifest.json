@@ -1,82 +1,48 @@
 {
-  "manifest_version": 3,
-  "name": "Adzooka",
-  "version": "3.0.0",
-  "description": "Rest in peace, ads. You just got hit by a bazooka.",
-  "permissions": [
-    "declarativeNetRequest",
-    "scripting",
-    "storage",
-    "tabs",
-    "webNavigation"
-  ],
-  "host_permissions": [
-    "<all_urls>"
-  ],
-  "background": {
-    "service_worker": "background.js"
-  },
-  "content_scripts": [
-    {
-      "matches": ["<all_urls>"],
-      "js": ["scriptlets.js"],
-      "world": "MAIN",
-      "run_at": "document_start",
-      "all_frames": true
+    "manifest_version": 3,
+    "name": "Adzooka",
+    "description": "Rest in peace, ads. You just got hit by a bazooka.",
+    "version": "3.0.0",
+    "icons": {
+        "16": "icons/icon16.png",
+        "48": "icons/icon48.png",
+        "128": "icons/icon128.png"
     },
-    {
-      "matches": ["<all_urls>"],
-      "css": ["cosmetic.css"],
-      "run_at": "document_start",
-      "all_frames": true
+    "action": {
+        "default_popup": "popup.html",
+        "default_icon": {
+            "16": "icons/icon16.png",
+            "48": "icons/icon48.png",
+            "128": "icons/icon128.png"
+        }
     },
-    {
-      "matches": ["*://*.spotify.com/*"],
-      "js": ["spotify-ads.js"],
-      "world": "MAIN",
-      "run_at": "document_start",
-      "all_frames": false
+    "background": {
+        "service_worker": "background.js"
     },
-    {
-      "matches": ["*://*.youtube.com/*", "*://*.spotify.com/*"],
-      "js": ["content.js"],
-      "run_at": "document_start",
-      "all_frames": true
-    },
-    {
-      "matches": ["<all_urls>"],
-      "js": ["content-general.js"],
-      "run_at": "document_start",
-      "all_frames": true
+    "permissions": [
+        "activeTab",
+        "declarativeNetRequest",
+        "declarativeNetRequestWithHostAccess",
+        "scripting",
+        "storage",
+        "tabs"
+    ],
+    "host_permissions": ["<all_urls>"],
+    "content_scripts": [
+        {
+            "css": ["cosmetic.css"],
+            "matches": ["http://*/*", "https://*/*"],
+            "run_at": "document_start"
+        },
+        {
+            "js": ["content-blocker.js"],
+            "matches": ["http://*/*", "https://*/*"],
+            "run_at": "document_start"
+        }
+    ],
+    "declarative_net_request": {
+        "rule_resources": [
+            { "id": "adzooka-rules", "enabled": true, "path": "rules.json" }
+        ]
     }
-  ],
-  "action": {
-    "default_popup": "popup.html",
-    "default_icon": {
-      "16": "icons/icon16.png",
-      "48": "icons/icon48.png",
-      "128": "icons/icon128.png"
-    },
-    "default_title": "Adzooka"
-  },
-  "declarative_net_request": {
-    "rule_resources": [
-      {
-        "id": "ad_block_rules",
-        "enabled": true,
-        "path": "rules/ad_block_rules.json"
-      }
-    ]
-  },
-  "web_accessible_resources": [
-    {
-      "resources": ["noop-1s.mp4"],
-      "matches": ["*://*.spotify.com/*"]
-    }
-  ],
-  "icons": {
-    "16": "icons/icon16.png",
-    "48": "icons/icon48.png",
-    "128": "icons/icon128.png"
-  }
 }
