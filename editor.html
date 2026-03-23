@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Adzooka — Rule Editor</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#0b0e14;--surface:#13181f;--card:#181e27;--border:#1e2530;--red:#e94560;--green:#23d160;--text:#dce4f0;--sub:#8a9ab5;--muted:#4a5568;--yellow:#f5a623}
+html,body{height:100vh;overflow:hidden;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;font-size:13px}
+
+/* ── App shell ── */
+.app{display:flex;flex-direction:column;height:100vh}
+
+/* ── Top bar ── */
+.topbar{flex-shrink:0;display:flex;align-items:center;gap:14px;padding:12px 20px;background:var(--surface);border-bottom:1px solid var(--border)}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.app-title{font-size:14px;font-weight:800;background:linear-gradient(90deg,#fff,#c9d8f0);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;white-space:nowrap}
+.topbar-sep{width:1px;height:20px;background:var(--border);flex-shrink:0}
+
+/* ── Global search ── */
+.search-wrap{flex:1;position:relative;max-width:360px}
+.search-wrap svg{position:absolute;left:10px;top:50%;transform:translateY(-50%);pointer-events:none;color:var(--muted)}
+.search-input{width:100%;background:var(--card);border:1px solid var(--border);border-radius:7px;padding:7px 10px 7px 32px;color:var(--text);font-size:12px;outline:none}
+.search-input:focus{border-color:var(--red)}
+.search-input::placeholder{color:var(--muted)}
+.search-clear{position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;line-height:1;display:none;padding:2px}
+.search-clear.visible{display:block}
+
+/* ── Stats strip ── */
+.stats{display:flex;align-items:center;gap:16px;margin-left:auto;flex-shrink:0}
+.stat{font-size:11px;color:var(--sub)}
+.stat strong{color:var(--text);font-weight:600}
+.stat-sep{color:var(--border)}
+
+/* ── Content area ── */
+.content{flex:1;display:grid;grid-template-columns:1fr 1fr;overflow:hidden}
+
+/* ── Panel ── */
+.panel{display:flex;flex-direction:column;border-right:1px solid var(--border);overflow:hidden}
+.panel:last-child{border-right:none}
+
+/* ── Panel toolbar ── */
+.panel-bar{flex-shrink:0;display:flex;align-items:center;gap:8px;padding:10px 16px;background:var(--surface);border-bottom:1px solid var(--border)}
+.panel-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--sub);flex:1}
+.badge{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:1px 8px;font-size:11px;color:var(--sub);flex-shrink:0}
+.badge.match{border-color:var(--red);color:var(--red)}
+
+/* ── Filter chips ── */
+.chips{flex-shrink:0;display:flex;gap:6px;padding:9px 16px;border-bottom:1px solid var(--border);overflow-x:auto;background:var(--bg)}
+.chips::-webkit-scrollbar{display:none}
+.chip{flex-shrink:0;padding:3px 10px;border-radius:20px;border:1px solid var(--border);background:var(--card);color:var(--sub);font-size:11px;cursor:pointer;transition:all .15s;white-space:nowrap}
+.chip:hover{border-color:var(--sub);color:var(--text)}
+.chip.active{border-color:var(--red);background:rgba(233,69,96,.12);color:var(--red)}
+
+/* ── Add row ── */
+.add-row{flex-shrink:0;display:flex;gap:6px;padding:10px 16px;border-bottom:1px solid var(--border);background:var(--bg)}
+.add-input{flex:1;background:var(--card);border:1px solid var(--border);border-radius:6px;padding:6px 10px;color:var(--text);font-size:12px;outline:none;font-family:monospace}
+.add-input:focus{border-color:var(--red)}
+.add-input::placeholder{color:var(--muted)}
+.add-btn{background:var(--red);border:none;border-radius:6px;color:#fff;font-size:12px;font-weight:600;padding:6px 12px;cursor:pointer;white-space:nowrap;flex-shrink:0}
+.add-btn:hover{opacity:.85}
+
+/* ── List ── */
+.list{flex:1;overflow-y:auto}
+.empty{padding:40px 20px;text-align:center;color:var(--muted);font-size:12px;line-height:1.7}
+.empty svg{margin-bottom:10px;opacity:.3}
+
+/* ── Hostname rows ── */
+.host-row{display:flex;align-items:center;gap:10px;padding:9px 16px;border-bottom:1px solid var(--border);transition:background .15s}
+.host-row:hover{background:var(--card)}
+.host-row.hidden{display:none}
+.host-name{flex:1;font-family:monospace;font-size:12px;color:var(--text);word-break:break-all}
+.host-name mark{background:rgba(233,69,96,.25);color:var(--red);border-radius:2px}
+
+/* ── Site groups ── */
+.site-group.hidden{display:none}
+.site-label{display:flex;align-items:center;justify-content:space-between;padding:7px 16px;background:var(--surface);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:2}
+.site-name{font-size:11px;font-weight:600;color:var(--sub);display:flex;align-items:center;gap:6px}
+.site-badge{font-size:10px;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:0 6px;color:var(--muted);font-weight:400}
+.site-actions{display:flex;gap:6px;align-items:center}
+.clear-site-btn{background:none;border:none;color:var(--muted);font-size:10px;cursor:pointer;padding:2px 6px;border-radius:3px;transition:color .15s}
+.clear-site-btn:hover{color:var(--red)}
+
+/* ── Selector rows ── */
+.sel-row{display:flex;align-items:center;gap:8px;padding:7px 16px 7px 24px;border-bottom:1px solid var(--border);transition:background .15s}
+.sel-row:hover{background:var(--card)}
+.sel-row.hidden{display:none}
+.sel-type{flex-shrink:0;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;padding:2px 5px;border-radius:3px;opacity:.7}
+.sel-type.id{background:rgba(245,166,35,.15);color:var(--yellow)}
+.sel-type.cls{background:rgba(35,209,96,.15);color:var(--green)}
+.sel-type.attr{background:rgba(233,69,96,.15);color:var(--red)}
+.sel-type.tag{background:rgba(138,154,181,.15);color:var(--sub)}
+.sel-text{flex:1;font-family:monospace;font-size:11px;color:var(--sub);word-break:break-all;min-width:0}
+.sel-text mark{background:rgba(233,69,96,.25);color:var(--red);border-radius:2px}
+
+/* ── Delete btn ── */
+.del-btn{flex-shrink:0;background:none;border:1px solid transparent;border-radius:5px;color:var(--muted);cursor:pointer;padding:3px 6px;font-size:11px;line-height:1;transition:all .15s}
+.del-btn:hover{border-color:var(--red);color:var(--red);background:rgba(233,69,96,.08)}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar{width:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- Top bar -->
+  <div class="topbar">
+    <div class="logo">
+      <svg width="24" height="24" viewBox="0 0 40 40" fill="none">
+        <path d="M20 3L4 10V21C4 29.5 11 37 20 39C29 37 36 29.5 36 21V10L20 3Z" fill="url(#sg)" stroke="url(#sb)" stroke-width="1.2"/>
+        <path d="M14 20.5L18.5 25L27 16" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+        <defs>
+          <linearGradient id="sg" x1="20" y1="3" x2="20" y2="39" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#e94560"/><stop offset="100%" stop-color="#9b1d35"/></linearGradient>
+          <linearGradient id="sb" x1="20" y1="3" x2="20" y2="39" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#ff6b8a"/><stop offset="100%" stop-color="#e94560"/></linearGradient>
+        </defs>
+      </svg>
+      <span class="app-title">Rule Editor</span>
+    </div>
+    <div class="topbar-sep"></div>
+
+    <!-- Global search -->
+    <div class="search-wrap">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input class="search-input" id="search" type="text" placeholder="Search rules…" spellcheck="false" autocomplete="off">
+      <button class="search-clear" id="search-clear">✕</button>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats">
+      <span class="stat"><strong id="stat-urls">0</strong> hosts</span>
+      <span class="stat-sep">·</span>
+      <span class="stat"><strong id="stat-sites">0</strong> sites</span>
+      <span class="stat-sep">·</span>
+      <span class="stat"><strong id="stat-sels">0</strong> selectors</span>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <!-- ── Left: Blocked Hostnames ── -->
+    <div class="panel">
+      <div class="panel-bar">
+        <span class="panel-title">Blocked Hostnames</span>
+        <span class="badge" id="url-badge">0</span>
+      </div>
+      <div class="add-row">
+        <input class="add-input" id="url-input" type="text" placeholder="e.g. ads.example.com" spellcheck="false">
+        <button class="add-btn" id="url-add">Add</button>
+      </div>
+      <div class="list" id="url-list"></div>
+    </div>
+
+    <!-- ── Right: Selectors by Site ── -->
+    <div class="panel">
+      <div class="panel-bar">
+        <span class="panel-title">Selectors by Site</span>
+        <span class="badge" id="sel-badge">0</span>
+      </div>
+      <!-- Site filter chips -->
+      <div class="chips" id="site-chips"></div>
+      <div class="list" id="sel-list"></div>
+    </div>
+
+  </div>
+</div>
+<script src="editor.js"></script>
+</body>
+</html>
