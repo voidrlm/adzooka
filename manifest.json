@@ -49,6 +49,12 @@
             "js": ["youtube-blocker.js"],
             "matches": ["*://*.youtube.com/*"],
             "run_at": "document_start"
+        },
+        {
+            "js": ["spotify-ads.js"],
+            "matches": ["*://open.spotify.com/*"],
+            "run_at": "document_start",
+            "world": "MAIN"
         }
     ],
     "declarative_net_request": {
