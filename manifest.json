@@ -38,6 +38,17 @@
             "js": ["content-blocker.js"],
             "matches": ["http://*/*", "https://*/*"],
             "run_at": "document_start"
+        },
+        {
+            "js": ["youtube-main.js"],
+            "matches": ["*://*.youtube.com/*"],
+            "run_at": "document_start",
+            "world": "MAIN"
+        },
+        {
+            "js": ["youtube-blocker.js"],
+            "matches": ["*://*.youtube.com/*"],
+            "run_at": "document_start"
         }
     ],
     "declarative_net_request": {

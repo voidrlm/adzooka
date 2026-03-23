@@ -1,4 +1,6 @@
 (function () {
+    if (location.hostname.includes('youtube.com')) return;
+
     const STYLE_ID = '__adzooka-cosmetic-user';
     const site = window.location.hostname;
 

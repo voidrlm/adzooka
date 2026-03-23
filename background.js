@@ -1,5 +1,18 @@
-const DISABLED_RULE_BASE = 900000;
-const BLOCKED_RULE_BASE  = 800000;
+const DISABLED_RULE_BASE  = 900000;
+const BLOCKED_RULE_BASE   = 800000;
+const YOUTUBE_ALLOW_ID    = 700000;
+
+// YouTube is handled exclusively by youtube-blocker.js / youtube-main.js.
+// This rule ensures none of Adzooka's DNR rules ever fire on YouTube.
+const YOUTUBE_ALLOW_RULE = {
+    id: YOUTUBE_ALLOW_ID,
+    priority: 99999,
+    action: { type: 'allowAllRequests' },
+    condition: {
+        requestDomains: ['youtube.com', 'www.youtube.com', 'googlevideo.com', 'yt3.ggpht.com'],
+        resourceTypes: ['main_frame', 'sub_frame', 'script', 'image', 'xmlhttprequest', 'media', 'object', 'other'],
+    },
+};
 
 // ── Dynamic rules sync ───────────────────────────────────────────────────────
 
@@ -38,7 +51,7 @@ async function syncDynamicRules() {
 
     await chrome.declarativeNetRequest.updateDynamicRules({
         removeRuleIds: toRemove,
-        addRules: [...allowRules, ...blockRules],
+        addRules: [YOUTUBE_ALLOW_RULE, ...allowRules, ...blockRules],
     });
 }
 
