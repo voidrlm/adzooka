@@ -425,18 +425,6 @@ li:has(> .ad-badge), div:has(> .ad-badge),
 li:has(> [class*="sponsored"]), div:has(> [class*="sponsored"]) { display: none !important; }
 
 /* ═══════════════════════════════════════════════════════════════════════════ */
-/* 19. COOKIE BANNERS / GDPR CONSENT (optional — remove if you want these)    */
-/* ═══════════════════════════════════════════════════════════════════════════ */
-/* Uncomment the block below to also hide cookie consent popups:
-#cookie-banner, .cookie-banner, #cookieBanner,
-#cookie-notice, .cookie-notice,
-#cookie-consent, .cookie-consent,
-#gdpr-banner, .gdpr-banner,
-[id*="cookie-bar"], [class*="cookie-bar"],
-[id*="consent-modal"], [class*="consent-modal"] { display: none !important; }
-*/
-
-/* ═══════════════════════════════════════════════════════════════════════════ */
 /* SAFETY: real media must never be hidden                                     */
 /* ═══════════════════════════════════════════════════════════════════════════ */
 
