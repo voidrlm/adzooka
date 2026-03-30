@@ -8,7 +8,7 @@
     Object.assign(shield.style, {
         position: 'fixed',
         inset: '0',
-        zIndex: '2147483644',
+        zIndex: '2147483647',
         cursor: 'crosshair',
         background: 'transparent',
     });

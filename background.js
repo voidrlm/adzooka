@@ -10,7 +10,7 @@ const YOUTUBE_ALLOW_RULE = {
     action: { type: 'allowAllRequests' },
     condition: {
         requestDomains: ['youtube.com', 'www.youtube.com', 'googlevideo.com', 'yt3.ggpht.com'],
-        resourceTypes: ['main_frame', 'sub_frame', 'script', 'image', 'xmlhttprequest', 'media', 'object', 'other'],
+        resourceTypes: ['main_frame', 'sub_frame'],
     },
 };
 
