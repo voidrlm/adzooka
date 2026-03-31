@@ -66,6 +66,7 @@
                 if (isPlaying && isShort) {
                     el.muted = true;
                     el.volume = 0;
+                    el.playbackRate = 10; // silent + fast — no seeking, so completes naturally
                 }
             } catch (_) {}
         }
@@ -76,6 +77,7 @@
             try {
                 el.muted = false;
                 el.volume = 1;
+                if (el.playbackRate !== 1) el.playbackRate = 1;
             } catch (_) {}
         }
     }
