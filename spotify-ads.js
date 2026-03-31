@@ -1,4 +1,4 @@
-// Adzooka — Spotify ad skipping (MAIN world)
+// Adzooka — Spotify ad muting (MAIN world)
 (function () {
     'use strict';
 
@@ -6,7 +6,6 @@
 
     const captured = new Set();
 
-    // Intercept document.createElement('audio'/'video')
     const nativeCreate = document.createElement.bind(document);
     document.createElement = function (tag) {
         const el = nativeCreate.apply(this, arguments);
@@ -16,7 +15,6 @@
         return el;
     };
 
-    // Intercept new Audio()
     const NativeAudio = window.Audio;
     if (NativeAudio) {
         window.Audio = function (...args) {
@@ -28,42 +26,77 @@
     }
 
     function allMedia() {
-        // union of captured + anything in the DOM
-        const domMedia = Array.from(document.querySelectorAll('audio, video'));
-        domMedia.forEach(el => captured.add(el));
+        document.querySelectorAll('audio, video').forEach(el => captured.add(el));
         return captured;
     }
 
-    function skipAd() {
+    function isAdPlaying() {
+        // Reliable selector-based checks only — no broad text scanning
+        if (document.querySelector(
+            '[data-testadtype="ad-type-ad"],' +
+            '[data-testid="ad-break-ui"],' +
+            '[data-testid="ad-break-overlay"],' +
+            '[data-testid="advertisement"],' +
+            'div[data-testid="ad-manager"]'
+        )) return true;
+
+        // Only scan the right-side "now playing" sidebar for ad break text,
+        // not the whole page (avoids false positives from lyrics/descriptions)
+        const sidebar = document.querySelector(
+            '[data-testid="now-playing-widget"], ' +
+            '[data-testid="right-sidebar"], ' +
+            'aside[aria-label]'
+        );
+        const container = sidebar || document.body;
+        if (!container) return false;
+
+        return (
+            container.innerText.includes('after the break') ||
+            container.innerText.includes('left in the break')
+        );
+    }
+
+    function muteAds() {
         for (const el of allMedia()) {
             try {
-                el.muted = true;
-                // Try seeking to end; fall back to 16× speed
-                if (el.duration && isFinite(el.duration)) {
-                    el.currentTime = el.duration;
-                } else {
-                    el.playbackRate = 16;
+                // Only mute short-duration elements that are actively playing — those are ads.
+                // Never seek or change playback rate (detectable + causes song skipping).
+                const isPlaying = !el.paused && !el.ended && el.readyState >= 2;
+                const isShort = isFinite(el.duration) && el.duration > 0 && el.duration < 45;
+                if (isPlaying && isShort) {
+                    el.muted = true;
+                    el.volume = 0;
                 }
             } catch (_) {}
         }
     }
 
-    function isAdPlaying() {
-        return !!document.querySelector(
-            '[data-testadtype="ad-type-ad"], ' +
-            '[aria-label*="Advertisement"], ' +
-            '.UpgradeToPremiumBanner, ' +
-            'div[data-testid="ad-manager"]'
-        );
+    function restoreAudio() {
+        for (const el of allMedia()) {
+            try {
+                el.muted = false;
+                el.volume = 1;
+            } catch (_) {}
+        }
     }
 
-    // Poll every 500ms
-    setInterval(() => {
-        if (isAdPlaying()) skipAd();
-    }, 500);
+    let wasAdPlaying = false;
+    let adConfirmCount = 0;
 
-    // Also react immediately via MutationObserver
-    new MutationObserver(() => {
-        if (isAdPlaying()) skipAd();
-    }).observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['data-testadtype'] });
+    setInterval(() => {
+        const adNow = isAdPlaying();
+        if (adNow) {
+            adConfirmCount = Math.min(adConfirmCount + 1, 10);
+            if (adConfirmCount >= 2) {
+                muteAds();
+                wasAdPlaying = true;
+            }
+        } else {
+            adConfirmCount = 0;
+            if (wasAdPlaying) {
+                wasAdPlaying = false;
+                restoreAudio();
+            }
+        }
+    }, 400);
 })();
