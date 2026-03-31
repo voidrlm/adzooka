@@ -428,3 +428,13 @@ li:has(> [class*="sponsored"]), div:has(> [class*="sponsored"]) { display: none 
 /* ═══════════════════════════════════════════════════════════════════════════ */
 
 video, audio, video source { display: block !important; visibility: visible !important; }
+
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/* GMAIL SAFETY: Gmail uses .ads and .ad on email message containers          */
+/* Two-class selectors have higher specificity than the single-class rules    */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+
+.adn.ads,
+.ii.gt,
+.a3s.aiL,
+.gs .ii { display: block !important; visibility: visible !important; }
