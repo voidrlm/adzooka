@@ -258,7 +258,6 @@ a[aria-label^="Sponsored"] { display: none !important; }
 /* 5. TWITTER / X PROMOTED CONTENT                                             */
 /* ═══════════════════════════════════════════════════════════════════════════ */
 
-[data-testid="placementTracking"],
 article:has([data-testid="promotedIndicator"]),
 div[data-testid="tweet"]:has([data-testid="promotedIndicator"]),
 [data-testid="tweetSponsorshipLabel"],
