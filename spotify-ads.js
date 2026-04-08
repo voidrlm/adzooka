@@ -5,12 +5,14 @@
     if (!location.hostname.includes('spotify.com')) return;
 
     const captured = new Set();
+    const wired = new WeakSet();
 
     const nativeCreate = document.createElement.bind(document);
     document.createElement = function (tag) {
         const el = nativeCreate.apply(this, arguments);
         if (typeof tag === 'string' && (tag === 'audio' || tag === 'video')) {
             captured.add(el);
+            wireMediaListeners(el);
         }
         return el;
     };
@@ -20,14 +22,28 @@
         window.Audio = function (...args) {
             const el = new NativeAudio(...args);
             captured.add(el);
+            wireMediaListeners(el);
             return el;
         };
         window.Audio.prototype = NativeAudio.prototype;
     }
 
     function allMedia() {
-        document.querySelectorAll('audio, video').forEach(el => captured.add(el));
+        document.querySelectorAll('audio, video').forEach(el => {
+            captured.add(el);
+            wireMediaListeners(el);
+        });
         return captured;
+    }
+
+    function isLikelyAdMedia(el) {
+        try {
+            const isPlaying = !el.paused && !el.ended && el.readyState >= 2;
+            const isShort = isFinite(el.duration) && el.duration > 0 && el.duration < 45;
+            return isPlaying && isShort;
+        } catch (_) {
+            return false;
+        }
     }
 
     function isAdPlaying() {
@@ -61,9 +77,7 @@
             try {
                 // Only mute short-duration elements that are actively playing — those are ads.
                 // Never seek or change playback rate (detectable + causes song skipping).
-                const isPlaying = !el.paused && !el.ended && el.readyState >= 2;
-                const isShort = isFinite(el.duration) && el.duration > 0 && el.duration < 45;
-                if (isPlaying && isShort) {
+                if (isLikelyAdMedia(el)) {
                     el.muted = true;
                     el.volume = 0;
                     el.playbackRate = 10; // silent + fast — no seeking, so completes naturally
@@ -85,11 +99,14 @@
     let wasAdPlaying = false;
     let adConfirmCount = 0;
 
-    setInterval(() => {
-        const adNow = isAdPlaying();
+    function evaluateAdState() {
+        const adMarkerVisible = isAdPlaying();
+        const shortMediaPlaying = [...allMedia()].some(isLikelyAdMedia);
+        const adNow = adMarkerVisible || shortMediaPlaying;
+
         if (adNow) {
             adConfirmCount = Math.min(adConfirmCount + 1, 10);
-            if (adConfirmCount >= 2) {
+            if (adConfirmCount >= 1) {
                 muteAds();
                 wasAdPlaying = true;
             }
@@ -100,5 +117,39 @@
                 restoreAudio();
             }
         }
+    }
+
+    let queued = false;
+    function queueEvaluate() {
+        if (queued) return;
+        queued = true;
+        setTimeout(() => {
+            queued = false;
+            evaluateAdState();
+        }, 60);
+    }
+
+    function wireMediaListeners(el) {
+        if (!el || wired.has(el)) return;
+        wired.add(el);
+        const events = ['play', 'playing', 'durationchange', 'timeupdate', 'loadedmetadata'];
+        events.forEach(evt => el.addEventListener(evt, queueEvaluate, { passive: true }));
+    }
+
+    setInterval(() => {
+        evaluateAdState();
     }, 400);
+
+    const observer = new MutationObserver(queueEvaluate);
+    observer.observe(document.documentElement || document, {
+        subtree: true,
+        childList: true,
+        attributes: true,
+        attributeFilter: ['data-testid', 'data-testadtype', 'aria-label', 'class'],
+    });
+
+    document.addEventListener('visibilitychange', queueEvaluate, { passive: true });
+    window.addEventListener('focus', queueEvaluate, { passive: true });
+
+    queueEvaluate();
 })();
