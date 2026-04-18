@@ -40,6 +40,12 @@
             "run_at": "document_start"
         },
         {
+            "js": ["popup-blocker.js"],
+            "matches": ["http://*/*", "https://*/*"],
+            "run_at": "document_start",
+            "world": "MAIN"
+        },
+        {
             "js": ["youtube-main.js"],
             "matches": ["*://*.youtube.com/*"],
             "run_at": "document_start",
