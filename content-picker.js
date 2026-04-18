@@ -5,14 +5,32 @@
     // Full-page transparent shield — owns all pointer events so page elements
     // can never receive a click while the picker is active.
     const shield = document.createElement('div');
-    Object.assign(shield.style, {
-        position: 'fixed',
-        inset: '0',
-        zIndex: '2147483647',
-        cursor: 'crosshair',
-        background: 'transparent',
-    });
+    shield.style.cssText = 'position:fixed;inset:0;cursor:crosshair;background:transparent;';
+    // Use setProperty with 'important' so page-script inline overrides can't win.
+    shield.style.setProperty('z-index', '2147483647', 'important');
+    shield.style.setProperty('pointer-events', 'auto', 'important');
     document.documentElement.appendChild(shield);
+
+    // Ad scripts may append elements to <html> AFTER the shield, bumping them
+    // above it in stacking order (same z-index, later DOM position = on top).
+    // Re-append the shield whenever anything overtakes it.
+    const selfRaise = new MutationObserver(() => {
+        if (document.documentElement.lastElementChild !== shield)
+            document.documentElement.appendChild(shield);
+    });
+    selfRaise.observe(document.documentElement, { childList: true });
+
+    // Some pages (e.g. ouo.press) run scripts that scan for high-z-index fixed
+    // elements and set pointer-events:none !important on them to kill pickers.
+    // Detect any tamper with the shield's style and immediately restore it.
+    const styleGuard = new MutationObserver(() => {
+        const pe  = shield.style.getPropertyValue('pointer-events');
+        const pri = shield.style.getPropertyPriority('pointer-events');
+        const zi  = shield.style.getPropertyValue('z-index');
+        if (pe !== 'auto'       || pri !== 'important') shield.style.setProperty('pointer-events', 'auto',       'important');
+        if (zi !== '2147483647'                        ) shield.style.setProperty('z-index',        '2147483647', 'important');
+    });
+    styleGuard.observe(shield, { attributes: true, attributeFilter: ['style'] });
 
     const highlight = document.createElement('div');
     Object.assign(highlight.style, {
@@ -65,6 +83,9 @@
     hint.textContent = 'Adzooka: Click an element to block it  •  ESC to cancel';
     document.documentElement.appendChild(hint);
 
+    // Elements that belong to the picker UI — excluded from hit-testing.
+    const pickerUi = new Set([shield, highlight, label, hint]);
+
     let currentEl = null;
 
     function getAdUrl(el) {
@@ -82,13 +103,8 @@
         return null;
     }
 
-    // True only for strings that look like auto-generated hex hashes
-    // e.g. "i70de066571bd", "a3229ff", "pmveboy37he1evqycf"
-    // Does NOT flag real class names like "advertisement-banner" or "vjs-inplayer-container"
     function looksRandom(str) {
-        // Pure hex pattern: optional 1-2 letter prefix then 7+ hex digits, nothing else
         if (/^[a-z]{0,2}[0-9a-f]{8,}$/i.test(str)) return true;
-        // All lowercase alphanum, no hyphens/underscores, suspiciously long
         if (str.length > 18 && /^[a-z0-9]+$/.test(str)) return true;
         return false;
     }
@@ -97,7 +113,6 @@
         try { return new URL(url).hostname; } catch (_) { return null; }
     }
 
-    // Pick stable classes from an element's classList
     function stableClasses(el, max = 2) {
         return Array.from(el.classList)
             .filter(c => c.length > 1 && !looksRandom(c) && !/^(js-|is-|has-|active|open|hidden|show|hide|visible)$/.test(c))
@@ -106,14 +121,10 @@
             .join('');
     }
 
-    // Build a stable CSS selector that survives page reload.
-    // Walks up the DOM to find the best anchor if the element itself has nothing useful.
     function getSelector(el) {
-        // Try the element itself first
         const sel = selectorForEl(el);
         if (sel) return sel;
 
-        // Walk up to find a stable ancestor, then qualify with the original tag
         let node = el.parentElement;
         let depth = 0;
         while (node && node !== document.body && depth < 4) {
@@ -122,46 +133,43 @@
             node = node.parentElement;
             depth++;
         }
-
         return null;
     }
 
     function selectorForEl(el) {
         const tag = el.tagName.toLowerCase();
 
-        // Stable ID
         if (el.id && !looksRandom(el.id)) return `#${CSS.escape(el.id)}`;
 
-        // src-based (iframes, img, script, video)
         const src = el.getAttribute('src');
         if (src) { const h = hostnameOf(src); if (h) return `${tag}[src*="${h}"]`; }
 
-        // href-based
         const href = el.getAttribute('href');
         if (href) { const h = hostnameOf(href); if (h) return `${tag}[href*="${h}"]`; }
 
-        // data-src
         const dataSrc = el.getAttribute('data-src') || el.getAttribute('data-lazy-src');
         if (dataSrc) { const h = hostnameOf(dataSrc); if (h) return `${tag}[data-src*="${h}"]`; }
 
-        // Semantic data-* ad attributes
         for (const attr of ['data-ad-slot', 'data-ad-unit', 'data-adunit', 'data-widget-id', 'data-zone']) {
             const val = el.getAttribute(attr);
             if (val) return `${tag}[${attr}="${CSS.escape(val)}"]`;
         }
 
-        // Class-based
         const classes = stableClasses(el);
         if (classes) return `${tag}${classes}`;
 
         return null;
     }
 
+    // Use elementsFromPoint so we never need to hide the shield.
+    // elementsFromPoint returns ALL elements geometrically at the point,
+    // regardless of pointer-events — we just skip our own UI elements.
     function elementUnder(x, y) {
-        shield.style.display = 'none';
-        const el = document.elementFromPoint(x, y);
-        shield.style.display = '';
-        return el;
+        const all = document.elementsFromPoint(x, y);
+        for (const el of all) {
+            if (!pickerUi.has(el)) return el;
+        }
+        return null;
     }
 
     function updateHighlight(el) {
@@ -212,6 +220,7 @@
 
     function cleanup() {
         window.__adzookaPickerActive = false;
+        selfRaise.disconnect();
         shield.remove();
         highlight.remove();
         label.remove();
