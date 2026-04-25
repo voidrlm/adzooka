@@ -1,10 +1,6 @@
 const DISABLED_RULE_BASE  = 900000;
 const BLOCKED_RULE_BASE   = 800000;
 const YOUTUBE_ALLOW_ID    = 700000;
-const REDIRECT_GUARD_MS   = 2000;
-
-const recentIntents = new Map();
-const guardReverts = new Map();
 
 // YouTube is handled exclusively by youtube-blocker.js / youtube-main.js.
 // This rule ensures none of Adzooka's DNR rules ever fire on YouTube.
@@ -65,66 +61,6 @@ async function startPicker(tabId) {
     await chrome.scripting.executeScript({ target: { tabId }, files: ['content-picker.js'] });
 }
 
-function normalizeUrl(url) {
-    if (typeof url !== 'string' || !url.trim()) return null;
-    try {
-        return new URL(url).href;
-    } catch (_) {
-        return null;
-    }
-}
-
-function stripHash(url) {
-    if (!url) return null;
-    try {
-        const parsed = new URL(url);
-        parsed.hash = '';
-        return parsed.href;
-    } catch (_) {
-        return url;
-    }
-}
-
-function matchesExpected(url, intent) {
-    const bare = stripHash(url);
-    return (intent.expectedUrls || []).some(expected => {
-        const normalized = normalizeUrl(expected);
-        return normalized && (normalized === url || stripHash(normalized) === bare);
-    });
-}
-
-function sameHost(url, host) {
-    try {
-        return new URL(url).host === host;
-    } catch (_) {
-        return false;
-    }
-}
-
-async function revertUnexpectedRedirect(tabId, fallbackUrl) {
-    const now = Date.now();
-    const last = guardReverts.get(tabId) || 0;
-    if (now - last < 1500) return;
-    guardReverts.set(tabId, now);
-
-    try {
-        await chrome.tabs.goBack(tabId);
-    } catch (_) {
-        if (fallbackUrl) {
-            try {
-                await chrome.tabs.update(tabId, { url: fallbackUrl });
-            } catch (_) {
-                // Ignore: best-effort recovery only.
-            }
-        }
-    }
-
-    setTimeout(() => {
-        if (guardReverts.get(tabId) === now) {
-            guardReverts.delete(tabId);
-        }
-    }, 2000);
-}
 
 async function addBlockedElement(rawUrl, selector, site) {
     const updates = {};
@@ -193,57 +129,12 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         startPicker(msg.tabId).catch(console.error);
     } else if (msg.action === 'blockElement') {
         addBlockedElement(msg.url, msg.selector, msg.site || '').catch(console.error);
-    } else if (msg.action === 'gestureIntent' && sender.tab?.id) {
-        recentIntents.set(sender.tab.id, msg.payload);
     } else if (msg.action === 'importRules') {
         importRules(msg.data).then(() => sendResponse({ ok: true })).catch(console.error);
         return true;
     }
 });
 
-chrome.tabs.onRemoved.addListener((tabId) => {
-    recentIntents.delete(tabId);
-    guardReverts.delete(tabId);
-});
-
-chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
-    if (!changeInfo.url) return;
-
-    const intent = recentIntents.get(tabId);
-    if (!intent) return;
-
-    const now = Date.now();
-    if (now - (intent.timestamp || 0) > REDIRECT_GUARD_MS) {
-        recentIntents.delete(tabId);
-        return;
-    }
-
-    const nextUrl = normalizeUrl(changeInfo.url);
-    const sourceUrl = normalizeUrl(intent.sourceUrl);
-    if (!nextUrl || !sourceUrl) return;
-    if (stripHash(nextUrl) === stripHash(sourceUrl)) return;
-
-    if (matchesExpected(nextUrl, intent)) {
-        recentIntents.delete(tabId);
-        return;
-    }
-
-    const sourceHost = new URL(sourceUrl).host;
-    const expectedHosts = intent.expectedHosts || [];
-
-    let suspicious = false;
-
-    if (intent.kind === 'link' || intent.kind === 'form') {
-        suspicious = expectedHosts.length > 0 && !expectedHosts.some(host => sameHost(nextUrl, host));
-    } else if (!intent.interactive) {
-        suspicious = !sameHost(nextUrl, sourceHost);
-    }
-
-    if (!suspicious) return;
-
-    recentIntents.delete(tabId);
-    revertUnexpectedRedirect(tabId, sourceUrl).catch(console.error);
-});
 
 chrome.runtime.onInstalled.addListener(syncDynamicRules);
 chrome.runtime.onStartup.addListener(syncDynamicRules);
