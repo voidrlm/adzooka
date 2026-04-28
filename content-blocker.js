@@ -34,6 +34,13 @@
         }
     });
 
+    function isSearchUiHost() {
+        return /(^|\.)google\./i.test(site) ||
+            /(^|\.)bing\.com$/i.test(site) ||
+            /(^|\.)duckduckgo\.com$/i.test(site) ||
+            /(^|\.)search\.yahoo\.com$/i.test(site);
+    }
+
     function isElementVisible(el) {
         if (!(el instanceof HTMLElement)) return false;
         const style = getComputedStyle(el);
@@ -47,6 +54,24 @@
 
     function isLargeMediaRect(rect) {
         return rect.width >= 220 && rect.height >= 120;
+    }
+
+    function isPrimaryPlayerRect(rect) {
+        const vw = window.innerWidth || 0;
+        const vh = window.innerHeight || 0;
+        return rect.width >= Math.max(420, vw * 0.4) && rect.height >= Math.max(236, vh * 0.22);
+    }
+
+    function hasMeaningfulMedia(root = document) {
+        if (isSearchUiHost()) return false;
+
+        const candidates = root.querySelectorAll?.('video, audio, iframe') || [];
+        for (const node of candidates) {
+            if (!(node instanceof HTMLElement) || !isElementVisible(node)) continue;
+            const rect = node.getBoundingClientRect();
+            if (isLargeMediaRect(rect)) return true;
+        }
+        return false;
     }
 
     function elementText(el) {
@@ -197,6 +222,19 @@
             node = node.parentElement;
         }
         return null;
+    }
+
+    function isLikelyPreviewMedia(media) {
+        if (!(media instanceof HTMLMediaElement)) return false;
+        const rect = media.getBoundingClientRect();
+        const player = findPlayerRoot(media);
+        const playerRect = player?.getBoundingClientRect?.() || rect;
+        const anchored = !!media.closest('a');
+        const muted = !!media.muted;
+        const noControls = !media.controls;
+        const loops = !!media.loop;
+        const smallish = playerRect.width < 420 || playerRect.height < 236;
+        return smallish && muted && noControls && (loops || anchored);
     }
 
     function forceFinishMediaAd(media) {
@@ -362,10 +400,12 @@
 
     function adScoreForMedia(media) {
         if (!(media instanceof HTMLMediaElement)) return 0;
+        if (isLikelyPreviewMedia(media)) return 0;
         const player = findPlayerRoot(media);
         if (!player) return 0;
         if (!isElementVisible(player)) return 0;
         if (!isLargeMediaRect(player.getBoundingClientRect())) return 0;
+        if (!isPrimaryPlayerRect(player.getBoundingClientRect()) && !isAdUiNear(player)) return 0;
 
         let score = 0;
         if (isAdUiNear(player)) score += 4;
@@ -378,6 +418,8 @@
     }
 
     function scanForVideoAds(root = document) {
+        if (!hasMeaningfulMedia(root) && !hasMeaningfulMedia(document)) return;
+
         clickSkipButtons(root);
 
         if (root instanceof HTMLElement && VIDEO_AD_TEXT_RE.test(elementText(root))) {
@@ -401,7 +443,7 @@
         for (const media of root.querySelectorAll?.('video, audio') || []) {
             const player = findPlayerRoot(media);
             if (!player) continue;
-            if (isAdUiNear(player)) {
+            if (!isLikelyPreviewMedia(media) && isAdUiNear(player)) {
                 forceFinishMediaAd(media);
             }
         }
@@ -441,6 +483,7 @@
     }
 
     sweepTimer = setInterval(() => {
+        if (!hasMeaningfulMedia(document)) return;
         scanForVideoAds(document);
         releaseFinishedPlayers();
     }, 500);
