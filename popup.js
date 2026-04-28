@@ -26,6 +26,20 @@
     const escapeHtml = (value) =>
         value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
+    const labelForSelector = (selector) => {
+        if (selector.startsWith('adzooka-frame-cluster:')) {
+            try {
+                const rule = JSON.parse(selector.slice('adzooka-frame-cluster:'.length));
+                const anchor = rule.anchor || 'body';
+                const number = Number.isInteger(rule.index) ? rule.index + 1 : '?';
+                return `iframe cluster: ${anchor} iframe #${number}`;
+            } catch (_) {
+                return selector;
+            }
+        }
+        return selector;
+    };
+
     const getBlockedSelectorsMap = async () => {
         const { blockedSelectors = {} } = await chrome.storage.local.get('blockedSelectors');
         return blockedSelectors;
@@ -61,7 +75,7 @@
             .map((selector, index) => `
                 <div class="rule-item">
                   <span class="rule-bullet">#</span>
-                  <div class="rule-text">${escapeHtml(selector)}</div>
+                  <div class="rule-text">${escapeHtml(labelForSelector(selector))}</div>
                   <button class="rule-remove" type="button" data-index="${index}" aria-label="Remove rule">×</button>
                 </div>
             `)

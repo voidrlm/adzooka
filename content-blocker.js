@@ -2,6 +2,7 @@
     if (location.hostname.includes('youtube.com')) return;
 
     const STYLE_ID = '__adzooka-cosmetic-user';
+    const FRAME_CLUSTER_PREFIX = 'adzooka-frame-cluster:';
     const site = window.location.hostname;
     const VIDEO_AD_TEXT_RE = /\b(skip(?:\s+(?:ad|ads|in))?|advertisement|commercial\s+break|your\s+video\s+will\s+resume|this\s+ad\s+will\s+end\s+in|remove\s+ads?|log\s*in\s+or\s+sign\s*up\s+to\s+remove\s+ads|skip\s+ad\s*>>|ad\s+\d{1,2}\b)\b/i;
     const SKIP_NOW_RE = /\bskip(?:\s+ad|\s+ads)?\b/i;
@@ -12,20 +13,66 @@
     const PLAYER_COOLDOWN_MS = 2500;
     const hiddenRoots = new WeakSet();
     const playerState = new WeakMap();
+    let frameClusterRules = [];
     let sweepTimer = null;
+
+    function parseFrameClusterRule(selector) {
+        if (typeof selector !== 'string' || !selector.startsWith(FRAME_CLUSTER_PREFIX)) return null;
+        try {
+            const rule = JSON.parse(selector.slice(FRAME_CLUSTER_PREFIX.length));
+            if (!rule || typeof rule !== 'object') return null;
+            return rule;
+        } catch (_) {
+            return null;
+        }
+    }
 
     function applySelectors(selectors) {
         let el = document.getElementById(STYLE_ID);
-        if (!selectors || selectors.length === 0) {
+        frameClusterRules = (selectors || []).map(parseFrameClusterRule).filter(Boolean);
+        const cssSelectors = (selectors || []).filter((selector) => !parseFrameClusterRule(selector));
+
+        if (cssSelectors.length === 0) {
             if (el) el.remove();
-            return;
+        } else {
+            if (!el) {
+                el = document.createElement('style');
+                el.id = STYLE_ID;
+                (document.head || document.documentElement).appendChild(el);
+            }
+            el.textContent = cssSelectors.map((selector) => `${selector}{display:none!important}`).join('\n');
         }
-        if (!el) {
-            el = document.createElement('style');
-            el.id = STYLE_ID;
-            (document.head || document.documentElement).appendChild(el);
+
+        applyFrameClusterRules();
+    }
+
+    function hideFrameClusterNode(node) {
+        if (!isDomElement(node) || hiddenRoots.has(node)) return false;
+        hiddenRoots.add(node);
+        node.style.setProperty('display', 'none', 'important');
+        node.style.setProperty('visibility', 'hidden', 'important');
+        node.style.setProperty('pointer-events', 'none', 'important');
+        return true;
+    }
+
+    function applyFrameClusterRule(rule, root = document) {
+        let matched = 0;
+
+        try {
+            const anchor = document.querySelector(rule.anchor || 'body') || document.body;
+            const frames = Array.from(anchor.querySelectorAll('iframe, frame'));
+            const frame = frames[rule.index];
+            if (frame && hideFrameClusterNode(frame)) matched += 1;
+        } catch (_) {}
+
+        return matched;
+    }
+
+    function applyFrameClusterRules(root = document) {
+        if (!frameClusterRules.length) return;
+        for (const rule of frameClusterRules) {
+            applyFrameClusterRule(rule, root);
         }
-        el.textContent = selectors.map((selector) => `${selector}{display:none!important}`).join('\n');
     }
 
     chrome.storage.local.get('blockedSelectors', ({ blockedSelectors = {} }) => {
@@ -576,6 +623,7 @@
         for (const mutation of mutations) {
             for (const added of mutation.addedNodes) {
                 if (!isDomElement(added)) continue;
+                applyFrameClusterRules(added);
                 scanForVideoAds(added);
             }
             if (mutation.type === 'characterData' && mutation.target.parentElement) {
@@ -599,6 +647,7 @@
     }
 
     sweepTimer = setInterval(() => {
+        applyFrameClusterRules(document);
         if (!hasMeaningfulMedia(document)) return;
         scanForVideoAds(document);
         releaseFinishedPlayers();

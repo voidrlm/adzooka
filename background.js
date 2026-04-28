@@ -65,18 +65,28 @@ async function startPicker(tabId) {
 async function addBlockedElement(rawUrl, selector, site) {
     const updates = {};
     const normalizedSite = typeof site === 'string' ? site.toLowerCase() : '';
-    let pickedHostname = null;
+    const pickedHostnames = [];
+    const rawUrls = Array.isArray(rawUrl) ? rawUrl : (rawUrl ? [rawUrl] : []);
 
-    if (rawUrl) {
+    for (const url of rawUrls) {
         try {
-            pickedHostname = new URL(rawUrl).hostname;
-        } catch (_) {}
-
-        if (pickedHostname && pickedHostname.toLowerCase() !== normalizedSite) {
-            const { blockedUrls = [] } = await chrome.storage.local.get('blockedUrls');
-            if (!blockedUrls.includes(pickedHostname)) {
-                updates.blockedUrls = [...blockedUrls, pickedHostname];
+            const hostname = new URL(url).hostname;
+            if (hostname && hostname.toLowerCase() !== normalizedSite) {
+                pickedHostnames.push(hostname);
             }
+        } catch (_) {}
+    }
+
+    if (pickedHostnames.length) {
+        const { blockedUrls = [] } = await chrome.storage.local.get('blockedUrls');
+        const nextBlockedUrls = [...blockedUrls];
+        for (const hostname of pickedHostnames) {
+            if (!nextBlockedUrls.includes(hostname)) {
+                nextBlockedUrls.push(hostname);
+            }
+        }
+        if (nextBlockedUrls.length !== blockedUrls.length) {
+            updates.blockedUrls = nextBlockedUrls;
         }
     }
 
