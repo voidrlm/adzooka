@@ -6,7 +6,17 @@
       "WebFetch(domain:raw.githubusercontent.com)",
       "WebFetch(domain:adblock-tester.com)",
       "WebFetch(domain:cdn.ravenjs.com)",
-      "WebFetch(domain:d2wy8f7a9ursnm.cloudfront.net)"
+      "WebFetch(domain:d2wy8f7a9ursnm.cloudfront.net)",
+      "Bash(find C:UsersArjunDownloadsddkjiahejlhfcafbddmgiahcphecmpfh/js -name *.js -type f ! -path */scripting/* ! -path */web_accessible*)",
+      "Bash(rm -f background.js content.js content-general.js scriptlets.js spotify-ads.js cosmetic.css popup.js popup.css popup.html noop-1s.mp4 noop-1s.srt)",
+      "Bash(rm -rf rules/)",
+      "Bash(grep -v \"^en$\")",
+      "Bash(xargs rm:*)",
+      "Bash(xargs sed:*)",
+      "Bash(python3:*)",
+      "Bash(cd:*)",
+      "Bash(node update-rules.js)",
+      "Bash(node:*)"
     ]
   }
 }
