@@ -1,6 +1,6 @@
-const DISABLED_RULE_BASE  = 900000;
-const BLOCKED_RULE_BASE   = 800000;
-const YOUTUBE_ALLOW_ID    = 700000;
+const DISABLED_RULE_BASE = 900000;
+const BLOCKED_RULE_BASE = 800000;
+const YOUTUBE_ALLOW_ID = 700000;
 
 // YouTube is handled exclusively by youtube-blocker.js / youtube-main.js.
 // This rule ensures none of Adzooka's DNR rules ever fire on YouTube.
@@ -14,8 +14,6 @@ const YOUTUBE_ALLOW_RULE = {
     },
 };
 
-// ── Dynamic rules sync ───────────────────────────────────────────────────────
-
 async function syncDynamicRules() {
     const { disabledSites = [], blockedUrls = [] } = await chrome.storage.local.get([
         'disabledSites',
@@ -23,7 +21,7 @@ async function syncDynamicRules() {
     ]);
 
     const existing = await chrome.declarativeNetRequest.getDynamicRules();
-    const toRemove = existing.map(r => r.id);
+    const toRemove = existing.map((rule) => rule.id);
 
     const allowRules = disabledSites.map((hostname, i) => ({
         id: DISABLED_RULE_BASE + i,
@@ -35,7 +33,6 @@ async function syncDynamicRules() {
         },
     }));
 
-    // blockedUrls is now a flat array of hostname strings
     const blockRules = blockedUrls.map((hostname, i) => ({
         id: BLOCKED_RULE_BASE + i,
         priority: 100,
@@ -43,8 +40,14 @@ async function syncDynamicRules() {
         condition: {
             requestDomains: [hostname],
             resourceTypes: [
-                'main_frame', 'sub_frame', 'script', 'image',
-                'xmlhttprequest', 'media', 'object', 'other',
+                'main_frame',
+                'sub_frame',
+                'script',
+                'image',
+                'xmlhttprequest',
+                'media',
+                'object',
+                'other',
             ],
         },
     }));
@@ -55,28 +58,29 @@ async function syncDynamicRules() {
     });
 }
 
-// ── Element picker ───────────────────────────────────────────────────────────
-
 async function startPicker(tabId) {
     await chrome.scripting.executeScript({ target: { tabId }, files: ['content-picker.js'] });
 }
 
 async function addBlockedElement(rawUrl, selector, site) {
     const updates = {};
+    const normalizedSite = typeof site === 'string' ? site.toLowerCase() : '';
+    let pickedHostname = null;
 
-    // Hostname is global — shared across all sites
     if (rawUrl) {
-        let hostname;
-        try { hostname = new URL(rawUrl).hostname; } catch (_) {}
-        if (hostname) {
+        try {
+            pickedHostname = new URL(rawUrl).hostname;
+        } catch (_) {}
+
+        if (pickedHostname && pickedHostname.toLowerCase() !== normalizedSite) {
             const { blockedUrls = [] } = await chrome.storage.local.get('blockedUrls');
-            if (!blockedUrls.includes(hostname)) {
-                updates.blockedUrls = [...blockedUrls, hostname];
+            if (!blockedUrls.includes(pickedHostname)) {
+                updates.blockedUrls = [...blockedUrls, pickedHostname];
             }
         }
     }
 
-    // Selector is stored per-site
+    // Same-site picks should become site-level selector rules, not global hostname blocks.
     if (selector && site) {
         const { blockedSelectors = {} } = await chrome.storage.local.get('blockedSelectors');
         const existing = blockedSelectors[site] || [];
@@ -90,23 +94,16 @@ async function addBlockedElement(rawUrl, selector, site) {
     }
 }
 
-// ── Import ruleset ───────────────────────────────────────────────────────────
-
 async function importRules({ blockedUrls = [], blockedSelectors = {} }) {
-    // Normalize blockedUrls: accept both plain strings and legacy {hostname} objects
     const normalizedUrls = blockedUrls
-        .map(e => (typeof e === 'string' ? e : e.hostname))
+        .map((entry) => (typeof entry === 'string' ? entry : entry.hostname))
         .filter(Boolean);
 
-    // Normalize blockedSelectors: accept both new object form and legacy array
-    let normalizedSelectors = {};
-    if (Array.isArray(blockedSelectors)) {
-        // Legacy flat array — nothing to key by, drop it
-    } else if (blockedSelectors && typeof blockedSelectors === 'object') {
-        // Normalize each site's list (could contain {selector} objects from older exports)
+    const normalizedSelectors = {};
+    if (!Array.isArray(blockedSelectors) && blockedSelectors && typeof blockedSelectors === 'object') {
         for (const [site, list] of Object.entries(blockedSelectors)) {
             normalizedSelectors[site] = list
-                .map(e => (typeof e === 'string' ? e : e.selector))
+                .map((entry) => (typeof entry === 'string' ? entry : entry.selector))
                 .filter(Boolean);
         }
     }
@@ -117,9 +114,7 @@ async function importRules({ blockedUrls = [], blockedSelectors = {} }) {
     });
 }
 
-// ── Listeners ────────────────────────────────────────────────────────────────
-
-chrome.storage.onChanged.addListener(changes => {
+chrome.storage.onChanged.addListener((changes) => {
     if (changes.disabledSites || changes.blockedUrls) syncDynamicRules();
 });
 
@@ -133,7 +128,6 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         return true;
     }
 });
-
 
 chrome.runtime.onInstalled.addListener(syncDynamicRules);
 chrome.runtime.onStartup.addListener(syncDynamicRules);

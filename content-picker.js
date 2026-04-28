@@ -117,6 +117,26 @@
         }
     }
 
+    function isSameSiteHost(hostname) {
+        return typeof hostname === 'string' &&
+            hostname.toLowerCase() === window.location.hostname.toLowerCase();
+    }
+
+    function selectorValueFromUrl(url) {
+        try {
+            const parsed = new URL(url, window.location.href);
+            if (parsed.hostname && !isSameSiteHost(parsed.hostname)) {
+                return parsed.hostname;
+            }
+
+            const path = parsed.pathname.replace(/\/+$/, '');
+            if (path && path !== '/') return path;
+
+            if (parsed.search) return `${parsed.pathname || ''}${parsed.search}`;
+        } catch (_) {}
+        return null;
+    }
+
     function stableClasses(el, max = 2) {
         return Array.from(el.classList)
             .filter((cls) => cls.length > 1 && !looksRandom(cls) && !/^(js-|is-|has-|active|open|hidden|show|hide|visible)$/.test(cls))
@@ -132,20 +152,20 @@
 
         const src = el.getAttribute('src');
         if (src) {
-            const host = hostnameOf(src);
-            if (host) return `${tag}[src*="${host}"]`;
+            const value = selectorValueFromUrl(src);
+            if (value) return `${tag}[src*="${CSS.escape(value)}"]`;
         }
 
         const href = el.getAttribute('href');
         if (href) {
-            const host = hostnameOf(href);
-            if (host) return `${tag}[href*="${host}"]`;
+            const value = selectorValueFromUrl(href);
+            if (value) return `${tag}[href*="${CSS.escape(value)}"]`;
         }
 
         const dataSrc = el.getAttribute('data-src') || el.getAttribute('data-lazy-src');
         if (dataSrc) {
-            const host = hostnameOf(dataSrc);
-            if (host) return `${tag}[data-src*="${host}"]`;
+            const value = selectorValueFromUrl(dataSrc);
+            if (value) return `${tag}[data-src*="${CSS.escape(value)}"]`;
         }
 
         for (const attr of ['data-ad-slot', 'data-ad-unit', 'data-adunit', 'data-widget-id', 'data-zone']) {
@@ -228,18 +248,34 @@
         if (!el || !el.isConnected) return;
 
         const url = getAdUrl(el);
+        const urlHost = hostnameOf(url);
         const selector = getSelector(el);
+        const isSameSite = !!urlHost && isSameSiteHost(urlHost);
+        let shouldPersistSelector = true;
+        let shouldPersistDomain = false;
+
+        if (isSameSite) {
+            shouldPersistSelector = true;
+        } else if (urlHost) {
+            shouldPersistDomain = window.confirm(`Add ${urlHost} to the global domain block list?`);
+        }
 
         el.remove();
         currentEl = null;
         updateHighlight(null);
 
-        flashHint(selector ? 'Blocked. Keep clicking to add more  |  ESC to finish' : 'Removed. Keep clicking  |  ESC to finish');
+        if (isSameSite) {
+            flashHint(selector ? 'Blocked on this site only. Keep clicking  |  ESC to finish' : 'Removed on this site only  |  ESC to finish');
+        } else if (shouldPersistDomain) {
+            flashHint(`Blocked ${urlHost} globally. Keep clicking  |  ESC to finish`);
+        } else {
+            flashHint(selector ? 'Blocked. Keep clicking to add more  |  ESC to finish' : 'Removed. Keep clicking  |  ESC to finish');
+        }
 
         chrome.runtime.sendMessage({
             action: 'blockElement',
-            url: url || null,
-            selector,
+            url: shouldPersistDomain ? (url || null) : null,
+            selector: shouldPersistSelector ? selector : null,
             site: window.location.hostname,
         });
     }
