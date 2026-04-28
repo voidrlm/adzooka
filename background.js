@@ -61,32 +61,6 @@ async function startPicker(tabId) {
     await chrome.scripting.executeScript({ target: { tabId }, files: ['content-picker.js'] });
 }
 
-async function addBlockedHostnames(hostnames = []) {
-    const normalized = [...new Set(
-        hostnames
-            .map((hostname) => String(hostname || '').trim().toLowerCase())
-            .filter(Boolean)
-    )];
-    if (!normalized.length) return;
-
-    const { blockedUrls = [] } = await chrome.storage.local.get('blockedUrls');
-    const next = [...blockedUrls];
-    let changed = false;
-
-    for (const hostname of normalized) {
-        if (!next.includes(hostname)) {
-            next.push(hostname);
-            changed = true;
-        }
-    }
-
-    if (changed) {
-        next.sort();
-        await chrome.storage.local.set({ blockedUrls: next });
-    }
-}
-
-
 async function addBlockedElement(rawUrl, selector, site) {
     const updates = {};
 
@@ -154,8 +128,6 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         startPicker(msg.tabId).catch(console.error);
     } else if (msg.action === 'blockElement') {
         addBlockedElement(msg.url, msg.selector, msg.site || '').catch(console.error);
-    } else if (msg.action === 'blockSourceHosts') {
-        addBlockedHostnames(msg.hosts || []).catch(console.error);
     } else if (msg.action === 'importRules') {
         importRules(msg.data).then(() => sendResponse({ ok: true })).catch(console.error);
         return true;

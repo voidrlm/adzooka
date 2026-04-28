@@ -7,7 +7,6 @@
     const SKIP_NOW_RE = /\bskip(?:\s+ad|\s+ads)?\b/i;
     const MUTE_RE = /\b(mute|unmute|volume)\b/i;
     const hiddenRoots = new WeakSet();
-    const reportedHosts = new Set();
     const playerState = new WeakMap();
     let sweepTimer = null;
 
@@ -179,32 +178,6 @@
         }
     }
 
-    function collectSourceHosts(root) {
-        const hosts = new Set();
-        const siteHost = location.hostname.toLowerCase();
-        const urlAttrs = ['src', 'data-src', 'data-lazy-src', 'poster'];
-
-        const candidates = [
-            root,
-            ...root.querySelectorAll('video, audio, source, iframe, img, script, [src], [data-src], [data-lazy-src], [poster]'),
-        ];
-
-        for (const node of candidates) {
-            if (!(node instanceof Element)) continue;
-
-            for (const attr of urlAttrs) {
-                const host = hostFromUrl(node.getAttribute(attr));
-                if (!host || host === siteHost) continue;
-                hosts.add(host);
-            }
-
-            const currentSrc = hostFromUrl(node.currentSrc);
-            if (currentSrc && currentSrc !== siteHost) hosts.add(currentSrc);
-        }
-
-        return [...hosts];
-    }
-
     function findPlayableMedia(start) {
         if (start instanceof HTMLVideoElement || start instanceof HTMLAudioElement) return start;
         if (start instanceof HTMLElement) {
@@ -259,8 +232,6 @@
         const player = findPlayerRoot(root);
         if (!player) return false;
 
-        reportSourceHosts(player);
-
         const media = findPlayableMedia(player);
         if (media) {
             if (root instanceof HTMLElement && root !== player) {
@@ -283,21 +254,9 @@
         return false;
     }
 
-    function reportSourceHosts(root) {
-        const freshHosts = collectSourceHosts(root).filter((host) => !reportedHosts.has(host));
-        if (!freshHosts.length) return;
-
-        freshHosts.forEach((host) => reportedHosts.add(host));
-        chrome.runtime.sendMessage({
-            action: 'blockSourceHosts',
-            hosts: freshHosts,
-        }).catch?.(() => {});
-    }
-
     function hideRoot(root) {
         if (!(root instanceof HTMLElement) || hiddenRoots.has(root)) return;
         hiddenRoots.add(root);
-        reportSourceHosts(root);
         killAdMediaInside(root);
         pauseMediaInside(root);
         root.style.setProperty('display', 'none', 'important');
@@ -443,7 +402,6 @@
             const player = findPlayerRoot(media);
             if (!player) continue;
             if (isAdUiNear(player)) {
-                reportSourceHosts(player);
                 forceFinishMediaAd(media);
             }
         }
@@ -451,11 +409,7 @@
         for (const media of document.querySelectorAll('video, audio')) {
             const score = adScoreForMedia(media);
             if (score >= 4) {
-                const player = findPlayerRoot(media);
-                if (player) {
-                    reportSourceHosts(player);
-                    forceFinishMediaAd(media);
-                }
+                forceFinishMediaAd(media);
             }
         }
     }
