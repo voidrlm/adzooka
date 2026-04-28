@@ -2,33 +2,30 @@
     if (window.__adzookaPickerActive) return;
     window.__adzookaPickerActive = true;
 
-    // Full-page transparent shield — owns all pointer events so page elements
-    // can never receive a click while the picker is active.
     const shield = document.createElement('div');
     shield.style.cssText = 'position:fixed;inset:0;cursor:crosshair;background:transparent;';
-    // Use setProperty with 'important' so page-script inline overrides can't win.
     shield.style.setProperty('z-index', '2147483647', 'important');
     shield.style.setProperty('pointer-events', 'auto', 'important');
     document.documentElement.appendChild(shield);
 
-    // Ad scripts may append elements to <html> AFTER the shield, bumping them
-    // above it in stacking order (same z-index, later DOM position = on top).
-    // Re-append the shield whenever anything overtakes it.
     const selfRaise = new MutationObserver(() => {
-        if (document.documentElement.lastElementChild !== shield)
+        if (document.documentElement.lastElementChild !== shield) {
             document.documentElement.appendChild(shield);
+        }
     });
     selfRaise.observe(document.documentElement, { childList: true });
 
-    // Some pages (e.g. ouo.press) run scripts that scan for high-z-index fixed
-    // elements and set pointer-events:none !important on them to kill pickers.
-    // Detect any tamper with the shield's style and immediately restore it.
     const styleGuard = new MutationObserver(() => {
-        const pe  = shield.style.getPropertyValue('pointer-events');
+        const pe = shield.style.getPropertyValue('pointer-events');
         const pri = shield.style.getPropertyPriority('pointer-events');
-        const zi  = shield.style.getPropertyValue('z-index');
-        if (pe !== 'auto'       || pri !== 'important') shield.style.setProperty('pointer-events', 'auto',       'important');
-        if (zi !== '2147483647'                        ) shield.style.setProperty('z-index',        '2147483647', 'important');
+        const zi = shield.style.getPropertyValue('z-index');
+
+        if (pe !== 'auto' || pri !== 'important') {
+            shield.style.setProperty('pointer-events', 'auto', 'important');
+        }
+        if (zi !== '2147483647') {
+            shield.style.setProperty('z-index', '2147483647', 'important');
+        }
     });
     styleGuard.observe(shield, { attributes: true, attributeFilter: ['style'] });
 
@@ -80,12 +77,12 @@
         border: '1px solid #e94560',
         pointerEvents: 'none',
     });
-    hint.textContent = 'Adzooka: Click an element to block it  •  ESC to cancel';
+    hint.textContent = 'Adzooka: Click elements to block  |  ESC to finish';
     document.documentElement.appendChild(hint);
 
-    // Elements that belong to the picker UI — excluded from hit-testing.
     const pickerUi = new Set([shield, highlight, label, hint]);
-
+    const defaultHint = hint.textContent;
+    let hintTimer = null;
     let currentEl = null;
 
     function getAdUrl(el) {
@@ -97,8 +94,11 @@
             el.closest('a')?.href,
             el.closest('[src]')?.src,
         ];
-        for (const s of candidates) {
-            try { if (s && /^https?:\/\//.test(s)) return s; } catch (_) {}
+
+        for (const value of candidates) {
+            try {
+                if (value && /^https?:\/\//.test(value)) return value;
+            } catch (_) {}
         }
         return null;
     }
@@ -110,30 +110,19 @@
     }
 
     function hostnameOf(url) {
-        try { return new URL(url).hostname; } catch (_) { return null; }
+        try {
+            return new URL(url).hostname;
+        } catch (_) {
+            return null;
+        }
     }
 
     function stableClasses(el, max = 2) {
         return Array.from(el.classList)
-            .filter(c => c.length > 1 && !looksRandom(c) && !/^(js-|is-|has-|active|open|hidden|show|hide|visible)$/.test(c))
+            .filter((cls) => cls.length > 1 && !looksRandom(cls) && !/^(js-|is-|has-|active|open|hidden|show|hide|visible)$/.test(cls))
             .slice(0, max)
-            .map(c => `.${CSS.escape(c)}`)
+            .map((cls) => `.${CSS.escape(cls)}`)
             .join('');
-    }
-
-    function getSelector(el) {
-        const sel = selectorForEl(el);
-        if (sel) return sel;
-
-        let node = el.parentElement;
-        let depth = 0;
-        while (node && node !== document.body && depth < 4) {
-            const anc = selectorForEl(node);
-            if (anc) return `${anc} > ${el.tagName.toLowerCase()}`;
-            node = node.parentElement;
-            depth++;
-        }
-        return null;
     }
 
     function selectorForEl(el) {
@@ -142,17 +131,26 @@
         if (el.id && !looksRandom(el.id)) return `#${CSS.escape(el.id)}`;
 
         const src = el.getAttribute('src');
-        if (src) { const h = hostnameOf(src); if (h) return `${tag}[src*="${h}"]`; }
+        if (src) {
+            const host = hostnameOf(src);
+            if (host) return `${tag}[src*="${host}"]`;
+        }
 
         const href = el.getAttribute('href');
-        if (href) { const h = hostnameOf(href); if (h) return `${tag}[href*="${h}"]`; }
+        if (href) {
+            const host = hostnameOf(href);
+            if (host) return `${tag}[href*="${host}"]`;
+        }
 
         const dataSrc = el.getAttribute('data-src') || el.getAttribute('data-lazy-src');
-        if (dataSrc) { const h = hostnameOf(dataSrc); if (h) return `${tag}[data-src*="${h}"]`; }
+        if (dataSrc) {
+            const host = hostnameOf(dataSrc);
+            if (host) return `${tag}[data-src*="${host}"]`;
+        }
 
         for (const attr of ['data-ad-slot', 'data-ad-unit', 'data-adunit', 'data-widget-id', 'data-zone']) {
-            const val = el.getAttribute(attr);
-            if (val) return `${tag}[${attr}="${CSS.escape(val)}"]`;
+            const value = el.getAttribute(attr);
+            if (value) return `${tag}[${attr}="${CSS.escape(value)}"]`;
         }
 
         const classes = stableClasses(el);
@@ -161,9 +159,21 @@
         return null;
     }
 
-    // Use elementsFromPoint so we never need to hide the shield.
-    // elementsFromPoint returns ALL elements geometrically at the point,
-    // regardless of pointer-events — we just skip our own UI elements.
+    function getSelector(el) {
+        const own = selectorForEl(el);
+        if (own) return own;
+
+        let node = el.parentElement;
+        let depth = 0;
+        while (node && node !== document.body && depth < 4) {
+            const parentSelector = selectorForEl(node);
+            if (parentSelector) return `${parentSelector} > ${el.tagName.toLowerCase()}`;
+            node = node.parentElement;
+            depth += 1;
+        }
+        return null;
+    }
+
     function elementUnder(x, y) {
         const all = document.elementsFromPoint(x, y);
         for (const el of all) {
@@ -173,38 +183,58 @@
     }
 
     function updateHighlight(el) {
-        if (!el) { highlight.style.display = 'none'; label.style.display = 'none'; return; }
-        const r = el.getBoundingClientRect();
+        if (!el || !el.isConnected) {
+            highlight.style.display = 'none';
+            label.style.display = 'none';
+            return;
+        }
+
+        const rect = el.getBoundingClientRect();
         Object.assign(highlight.style, {
             display: 'block',
-            top: r.top + 'px',
-            left: r.left + 'px',
-            width: r.width + 'px',
-            height: r.height + 'px',
+            top: `${rect.top}px`,
+            left: `${rect.left}px`,
+            width: `${rect.width}px`,
+            height: `${rect.height}px`,
         });
+
         const adUrl = getAdUrl(el);
-        label.textContent = adUrl ? `${el.tagName.toLowerCase()} → ${adUrl}` : el.tagName.toLowerCase();
+        label.textContent = adUrl ? `${el.tagName.toLowerCase()} -> ${adUrl}` : el.tagName.toLowerCase();
         label.style.display = 'block';
-        const labelTop = r.top - 22;
-        label.style.top = (labelTop < 0 ? r.bottom + 2 : labelTop) + 'px';
-        label.style.left = Math.max(0, r.left) + 'px';
+
+        const labelTop = rect.top - 22;
+        label.style.top = `${labelTop < 0 ? rect.bottom + 2 : labelTop}px`;
+        label.style.left = `${Math.max(0, rect.left)}px`;
     }
 
-    function onMouseMove(e) {
-        currentEl = elementUnder(e.clientX, e.clientY);
+    function flashHint(message) {
+        hint.textContent = message;
+        clearTimeout(hintTimer);
+        hintTimer = setTimeout(() => {
+            hint.textContent = defaultHint;
+        }, 1200);
+    }
+
+    function onMouseMove(event) {
+        currentEl = elementUnder(event.clientX, event.clientY);
         updateHighlight(currentEl);
     }
 
-    function onClick(e) {
-        e.preventDefault();
-        e.stopPropagation();
+    function onClick(event) {
+        event.preventDefault();
+        event.stopPropagation();
+
         const el = currentEl;
-        cleanup();
-        if (!el) return;
+        if (!el || !el.isConnected) return;
 
         const url = getAdUrl(el);
         const selector = getSelector(el);
+
         el.remove();
+        currentEl = null;
+        updateHighlight(null);
+
+        flashHint(selector ? 'Blocked. Keep clicking to add more  |  ESC to finish' : 'Removed. Keep clicking  |  ESC to finish');
 
         chrome.runtime.sendMessage({
             action: 'blockElement',
@@ -214,13 +244,15 @@
         });
     }
 
-    function onKeyDown(e) {
-        if (e.key === 'Escape') cleanup();
+    function onKeyDown(event) {
+        if (event.key === 'Escape') cleanup();
     }
 
     function cleanup() {
         window.__adzookaPickerActive = false;
+        clearTimeout(hintTimer);
         selfRaise.disconnect();
+        styleGuard.disconnect();
         shield.remove();
         highlight.remove();
         label.remove();
