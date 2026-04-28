@@ -40,6 +40,11 @@
             "run_at": "document_start"
         },
         {
+            "js": ["redirect-blocking-content.js"],
+            "matches": ["http://*/*", "https://*/*"],
+            "run_at": "document_start"
+        },
+        {
             "js": ["youtube-main.js"],
             "matches": ["*://*.youtube.com/*"],
             "run_at": "document_start",

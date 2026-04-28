@@ -1,3 +1,5 @@
+importScripts('redirect-blocking.js');
+
 const DISABLED_RULE_BASE = 900000;
 const BLOCKED_RULE_BASE = 800000;
 const YOUTUBE_ALLOW_ID = 700000;
