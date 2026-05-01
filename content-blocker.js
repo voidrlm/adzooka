@@ -4,8 +4,8 @@
     const STYLE_ID = '__adzooka-cosmetic-user';
     const FRAME_CLUSTER_PREFIX = 'adzooka-frame-cluster:';
     const site = window.location.hostname;
-    const VIDEO_AD_TEXT_RE = /\b(skip(?:\s+(?:ad|ads|in))?|advertisement|commercial\s+break|your\s+video\s+will\s+resume|this\s+ad\s+will\s+end\s+in|remove\s+ads?|log\s*in\s+or\s+sign\s*up\s+to\s+remove\s+ads|skip\s+ad\s*>>|ad\s+\d{1,2}\b)\b/i;
-    const SKIP_NOW_RE = /\bskip(?:\s+ad|\s+ads)?\b/i;
+    const VIDEO_AD_TEXT_RE = /\b(skip\s+(?:ad|ads)|skip\s+in\s+\d|advertisement|commercial\s+break|your\s+video\s+will\s+resume|this\s+ad\s+will\s+end\s+in|remove\s+ads?|log\s*in\s+or\s+sign\s*up\s+to\s+remove\s+ads|skip\s+ad\s*>>|ad\s+\d{1,2})\b/i;
+    const SKIP_NOW_RE = /\bskip\s+ads?\b/i;
     const STRONG_AD_TEXT_RE = /\b(this\s+ad\s+will\s+end\s+in|remove\s+ads?|log\s*in\s+or\s+sign\s*up\s+to\s+remove\s+ads|skip\s+ad\s*>>)\b/i;
     const MUTE_RE = /\b(mute|unmute|volume)\b/i;
     const SUPPRESSION_HOLD_MS = 1400;
@@ -15,6 +15,7 @@
     const playerState = new WeakMap();
     let frameClusterRules = [];
     let sweepTimer = null;
+    let siteEnabled = true;
 
     function parseFrameClusterRule(selector) {
         if (typeof selector !== 'string' || !selector.startsWith(FRAME_CLUSTER_PREFIX)) return null;
@@ -75,12 +76,17 @@
         }
     }
 
-    chrome.storage.local.get('blockedSelectors', ({ blockedSelectors = {} }) => {
-        applySelectors(blockedSelectors[site] || []);
+    chrome.storage.local.get(['blockedSelectors', 'disabledSites'], ({ blockedSelectors = {}, disabledSites = [] }) => {
+        siteEnabled = !disabledSites.includes(site);
+        if (siteEnabled) applySelectors(blockedSelectors[site] || []);
     });
 
     chrome.storage.onChanged.addListener((changes) => {
-        if (changes.blockedSelectors) {
+        if (changes.disabledSites) {
+            siteEnabled = !(changes.disabledSites.newValue || []).includes(site);
+            if (!siteEnabled) applySelectors([]);
+        }
+        if (changes.blockedSelectors && siteEnabled) {
             applySelectors((changes.blockedSelectors.newValue || {})[site] || []);
         }
     });
@@ -369,6 +375,12 @@
     function forceFinishMediaAd(media) {
         if (!(media instanceof HTMLMediaElement)) return;
 
+        // Never manipulate long-form content (> 3 min) without a confirmed strong ad signal
+        if (Number.isFinite(media.duration) && media.duration > 180) {
+            const player = findPlayerRoot(media) || media.parentElement;
+            if (!player || !hasTextMarkerNearPlayer(player, STRONG_AD_TEXT_RE)) return;
+        }
+
         try {
             const player = findPlayerRoot(media) || media.parentElement;
             const state = player ? playerState.get(player) : null;
@@ -407,6 +419,11 @@
 
         const media = findPlayableMedia(player);
         if (media) {
+            // Don't touch long-form content that lacks ad markers within the player
+            if (Number.isFinite(media.duration) && media.duration > 60 &&
+                !hasTextMarkerNearPlayer(player, VIDEO_AD_TEXT_RE)) {
+                return false;
+            }
             if (root instanceof HTMLElement && root !== player) {
                 root.style.setProperty('display', 'none', 'important');
                 root.style.setProperty('visibility', 'hidden', 'important');
@@ -539,14 +556,13 @@
 
     function shortClipScore(media) {
         if (!Number.isFinite(media.duration) || media.duration <= 0) return 0;
-        if (media.duration <= 120) return 1;
+        if (media.duration <= 30) return 1;
         return 0;
     }
 
     function autoplayingScore(media) {
         if (media.paused) return 0;
         if (media.autoplay) return 1;
-        if (media.currentTime < 2) return 1;
         return 0;
     }
 
@@ -573,6 +589,7 @@
     }
 
     function scanForVideoAds(root = document) {
+        if (!siteEnabled) return;
         if (!hasMeaningfulMedia(root) && !hasMeaningfulMedia(document)) return;
 
         clickSkipButtons(root);
@@ -613,7 +630,7 @@
 
         for (const media of document.querySelectorAll('video, audio')) {
             const score = adScoreForMedia(media);
-            if (score >= 4) {
+            if (score >= 6) {
                 forceFinishMediaAd(media);
             }
         }
@@ -623,11 +640,11 @@
         for (const mutation of mutations) {
             for (const added of mutation.addedNodes) {
                 if (!isDomElement(added)) continue;
-                applyFrameClusterRules(added);
-                scanForVideoAds(added);
+                if (siteEnabled) applyFrameClusterRules(added);
+                if (siteEnabled) scanForVideoAds(added);
             }
             if (mutation.type === 'characterData' && mutation.target.parentElement) {
-                scanForVideoAds(mutation.target.parentElement);
+                if (siteEnabled) scanForVideoAds(mutation.target.parentElement);
             }
         }
     });
@@ -647,6 +664,7 @@
     }
 
     sweepTimer = setInterval(() => {
+        if (!siteEnabled) return;
         applyFrameClusterRules(document);
         if (!hasMeaningfulMedia(document)) return;
         scanForVideoAds(document);
