@@ -378,19 +378,85 @@
         const own = selectorForEl(el);
         if (own) return own;
 
+        // Walk up through regular DOM and shadow host boundaries
         let node = el.parentElement;
+        // If parentElement is null, the element may be inside a shadow root
+        if (!node) {
+            const root = el.getRootNode();
+            if (root instanceof ShadowRoot) node = root.host;
+        }
         let depth = 0;
         while (node && node !== document.body && depth < 4) {
             const parentSelector = selectorForEl(node);
             if (parentSelector) return `${parentSelector} > ${el.tagName.toLowerCase()}`;
             node = node.parentElement;
+            if (!node) {
+                const root = (node || el).getRootNode?.();
+                if (root instanceof ShadowRoot) node = root.host;
+            }
             depth += 1;
         }
         return null;
     }
 
+    function getAllElementsAtPoint(x, y) {
+        const elements = [];
+        const visited = new Set();
+
+        // Collect all elements whose bounding rect contains the point,
+        // piercing into every open shadow root unconditionally (the host
+        // element may be zero-sized or transformed, so we can't gate on it).
+        function traverseRoot(root) {
+            const children = root.children || root.childNodes || [];
+            for (const child of children) {
+                if (child.nodeType !== Node.ELEMENT_NODE) continue;
+                traverseElement(child);
+            }
+        }
+
+        function traverseElement(node) {
+            if (!node || visited.has(node)) return;
+            visited.add(node);
+
+            const rect = node.getBoundingClientRect();
+            const inBounds = x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
+
+            if (inBounds) {
+                elements.push(node);
+            }
+
+            // Always pierce open shadow roots — the host may be zero-sized
+            // or transformed so its rect won't contain the point even when
+            // its shadow children visually do.
+            if (node.shadowRoot) {
+                traverseRoot(node.shadowRoot);
+            }
+
+            // Only recurse into regular children when in bounds (perf)
+            if (inBounds) {
+                for (const child of node.children || []) {
+                    traverseElement(child);
+                }
+            }
+        }
+
+        traverseRoot(document.documentElement);
+        return elements;
+    }
+
     function elementUnder(x, y) {
-        const all = document.elementsFromPoint(x, y);
+        const all = getAllElementsAtPoint(x, y);
+
+        // Sort: higher z-index wins; on tie, smaller area wins (more specific element)
+        all.sort((a, b) => {
+            const aZ = parseInt(window.getComputedStyle(a).zIndex) || 0;
+            const bZ = parseInt(window.getComputedStyle(b).zIndex) || 0;
+            if (bZ !== aZ) return bZ - aZ;
+            const aR = a.getBoundingClientRect();
+            const bR = b.getBoundingClientRect();
+            return (aR.width * aR.height) - (bR.width * bR.height);
+        });
+
         for (const el of all) {
             if (pickerUi.has(el)) continue;
             const frame = frameAtPointInside(el, x, y);
@@ -447,10 +513,24 @@
     }
 
     function refreshLocalStyle() {
-        localStyle.textContent = Array.from(pickedSelectors)
+        const css = Array.from(pickedSelectors)
             .filter((selector) => !selector.startsWith(FRAME_CLUSTER_PREFIX))
             .map((selector) => `${selector}{display:none!important;visibility:hidden!important;pointer-events:none!important}`)
             .join('\n');
+
+        localStyle.textContent = css;
+
+        // Also inject into any open shadow roots so shadow DOM elements are hidden
+        document.querySelectorAll('*').forEach((el) => {
+            if (!el.shadowRoot) return;
+            let shadowStyle = el.shadowRoot.querySelector('#__adzooka-picker-live-rules-shadow');
+            if (!shadowStyle) {
+                shadowStyle = document.createElement('style');
+                shadowStyle.id = '__adzooka-picker-live-rules-shadow';
+                el.shadowRoot.appendChild(shadowStyle);
+            }
+            shadowStyle.textContent = css;
+        });
     }
 
     function parseFrameClusterRule(selector) {
@@ -469,6 +549,22 @@
         node.style?.setProperty?.('pointer-events', 'none', 'important');
         try { node.remove(); } catch (_) {}
         return true;
+    }
+
+    // querySelectorAll that also searches inside open shadow roots
+    function querySelectorAllDeep(selector, root = document) {
+        const results = [];
+        try {
+            results.push(...root.querySelectorAll(selector));
+        } catch (_) {}
+
+        const allElements = root.querySelectorAll ? Array.from(root.querySelectorAll('*')) : [];
+        for (const el of allElements) {
+            if (el.shadowRoot) {
+                results.push(...querySelectorAllDeep(selector, el.shadowRoot));
+            }
+        }
+        return results;
     }
 
     function enforceFrameCluster(selector) {
@@ -492,7 +588,7 @@
 
         let removed = 0;
         try {
-            for (const match of document.querySelectorAll(selector)) {
+            for (const match of querySelectorAllDeep(selector)) {
                 if (pickerUi.has(match)) continue;
                 if (hideNode(match)) removed += 1;
             }
@@ -503,7 +599,7 @@
     function isBroadSelector(selector, pickedEl) {
         if (!selector || selector.startsWith(FRAME_CLUSTER_PREFIX)) return false;
         try {
-            const matches = Array.from(document.querySelectorAll(selector)).filter((node) => !pickerUi.has(node));
+            const matches = querySelectorAllDeep(selector).filter((node) => !pickerUi.has(node));
             if (matches.length <= 1) return false;
 
             const pickedTag = pickedEl?.tagName?.toLowerCase?.() || '';

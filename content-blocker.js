@@ -28,6 +28,46 @@
         }
     }
 
+    function querySelectorAllIncludingShadow(selector, root = document) {
+        const results = [];
+        const visited = new Set();
+
+        function traverse(node) {
+            if (!node || visited.has(node)) return;
+            visited.add(node);
+
+            if (node.nodeType === Node.ELEMENT_NODE) {
+                try {
+                    const matches = node.querySelectorAll(selector);
+                    for (const match of matches) {
+                        if (!visited.has(match)) {
+                            visited.add(match);
+                            results.push(match);
+                        }
+                    }
+                } catch (_) {}
+
+                // Check shadow root
+                if (node.shadowRoot) {
+                    traverse(node.shadowRoot);
+                }
+
+                // Traverse children
+                for (const child of node.children) {
+                    traverse(child);
+                }
+            }
+        }
+
+        traverse(root);
+        return results;
+    }
+
+    function querySelectorIncludingShadow(selector, root = document) {
+        const results = querySelectorAllIncludingShadow(selector, root);
+        return results.length > 0 ? results[0] : null;
+    }
+
     function applySelectors(selectors) {
         let el = document.getElementById(STYLE_ID);
         frameClusterRules = (selectors || []).map(parseFrameClusterRule).filter(Boolean);
@@ -60,8 +100,8 @@
         let matched = 0;
 
         try {
-            const anchor = document.querySelector(rule.anchor || 'body') || document.body;
-            const frames = Array.from(anchor.querySelectorAll('iframe, frame'));
+            const anchor = querySelectorIncludingShadow(rule.anchor || 'body') || document.body;
+            const frames = Array.from(querySelectorAllIncludingShadow('iframe, frame', anchor));
             const frame = frames[rule.index];
             if (frame && hideFrameClusterNode(frame)) matched += 1;
         } catch (_) {}
@@ -144,7 +184,7 @@
     function hasMeaningfulMedia(root = document) {
         if (isSearchUiHost()) return false;
 
-        const candidates = root.querySelectorAll?.('video, audio, iframe') || [];
+        const candidates = querySelectorAllIncludingShadow('video, audio, iframe', root);
         for (const node of candidates) {
             if (!isDomElement(node) || !isElementVisible(node)) continue;
             const rect = safeRect(node);
@@ -175,7 +215,7 @@
     }
 
     function clickSkipButtons(root = document) {
-        const candidates = root.querySelectorAll('button, a, div, span, [role="button"], [aria-label], [title]');
+        const candidates = querySelectorAllIncludingShadow('button, a, div, span, [role="button"], [aria-label], [title]', root);
         for (const node of candidates) {
             if (!looksLikeSkipButton(node)) continue;
             try {
@@ -265,7 +305,7 @@
     }
 
     function pauseMediaInside(root) {
-        for (const media of root.querySelectorAll('video, audio')) {
+        for (const media of querySelectorAllIncludingShadow('video, audio', root)) {
             try {
                 media.pause();
             } catch (_) {}
@@ -273,17 +313,17 @@
     }
 
     function killAdMediaInside(root) {
-        const mediaNodes = root.querySelectorAll('video, audio');
+        const mediaNodes = querySelectorAllIncludingShadow('video, audio', root);
         for (const media of mediaNodes) {
             try { media.pause(); } catch (_) {}
             try { media.removeAttribute('src'); } catch (_) {}
-            for (const source of media.querySelectorAll('source')) {
+            for (const source of querySelectorAllIncludingShadow('source', media)) {
                 try { source.removeAttribute('src'); } catch (_) {}
             }
             try { media.load(); } catch (_) {}
         }
 
-        const iframes = root.querySelectorAll('iframe');
+        const iframes = querySelectorAllIncludingShadow('iframe', root);
         for (const frame of iframes) {
             try { frame.src = 'about:blank'; } catch (_) {}
             try { frame.removeAttribute('srcdoc'); } catch (_) {}
@@ -358,7 +398,7 @@
             if (!(scope instanceof HTMLElement)) continue;
             if (regex.test(elementText(scope))) return true;
 
-            const nodes = scope.querySelectorAll('button, a, div, span, p, section, aside, strong, small, [role="dialog"], [aria-label], [title]');
+            const nodes = querySelectorAllIncludingShadow('button, a, div, span, p, section, aside, strong, small, [role="dialog"], [aria-label], [title]', scope);
             for (const node of nodes) {
                 if (!isDomElement(node) || !isElementVisible(node)) continue;
                 const text = elementText(node);
@@ -521,7 +561,7 @@
     function isAdUiNear(root) {
         if (!isDomElement(root)) return false;
         if (VIDEO_AD_TEXT_RE.test(elementText(root))) return true;
-        const nodes = root.querySelectorAll('button, a, div, span, section, aside, [role="dialog"], [aria-label], [title]');
+        const nodes = querySelectorAllIncludingShadow('button, a, div, span, section, aside, [role="dialog"], [aria-label], [title]', root);
         for (const node of nodes) {
             if (isElementVisible(node) && VIDEO_AD_TEXT_RE.test(elementText(node))) return true;
         }
@@ -531,7 +571,7 @@
     function getLargestVisibleMedia() {
         let best = null;
         let bestArea = 0;
-        for (const media of document.querySelectorAll('video, audio')) {
+        for (const media of querySelectorAllIncludingShadow('video, audio')) {
             if (!(media instanceof HTMLMediaElement)) continue;
             const player = findPlayerRoot(media);
             if (!player || !isElementVisible(player)) continue;
@@ -609,7 +649,7 @@
             }
         }
 
-        const candidates = root.querySelectorAll('button, a, div, span, section, aside, [role="dialog"], [aria-label], [title]');
+        const candidates = querySelectorAllIncludingShadow('button, a, div, span, section, aside, [role="dialog"], [aria-label], [title]', root);
         for (const node of candidates) {
             if (!(node instanceof HTMLElement)) continue;
             const text = elementText(node);
@@ -620,7 +660,7 @@
             }
         }
 
-        for (const media of root.querySelectorAll?.('video, audio') || []) {
+        for (const media of querySelectorAllIncludingShadow('video, audio', root)) {
             const player = findPlayerRoot(media);
             if (!player) continue;
             if (!isLikelyPreviewMedia(media) && isAdUiNear(player)) {
@@ -628,7 +668,7 @@
             }
         }
 
-        for (const media of document.querySelectorAll('video, audio')) {
+        for (const media of querySelectorAllIncludingShadow('video, audio')) {
             const score = adScoreForMedia(media);
             if (score >= 6) {
                 forceFinishMediaAd(media);
