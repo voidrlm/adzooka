@@ -59,85 +59,94 @@ async function syncDynamicRules() {
 }
 
 async function startPicker(tabId) {
-    await chrome.scripting.executeScript({ target: { tabId }, files: ['content-picker.js'] });
+    await chrome.scripting.executeScript({ target: { tabId }, files: ['element-rules.js', 'content-picker.js'] });
 }
 
-async function addBlockedElement(rawUrl, selector, site) {
-    const updates = {};
-    const normalizedSite = typeof site === 'string' ? site.toLowerCase() : '';
-    const pickedHostnames = [];
-    const rawUrls = Array.isArray(rawUrl) ? rawUrl : (rawUrl ? [rawUrl] : []);
-
-    for (const url of rawUrls) {
-        try {
-            const hostname = new URL(url).hostname;
-            if (hostname && hostname.toLowerCase() !== normalizedSite) {
-                pickedHostnames.push(hostname);
-            }
-        } catch (_) {}
-    }
-
-    if (pickedHostnames.length) {
-        const { blockedUrls = [] } = await chrome.storage.local.get('blockedUrls');
-        const nextBlockedUrls = [...blockedUrls];
-        for (const hostname of pickedHostnames) {
-            if (!nextBlockedUrls.includes(hostname)) {
-                nextBlockedUrls.push(hostname);
-            }
-        }
-        if (nextBlockedUrls.length !== blockedUrls.length) {
-            updates.blockedUrls = nextBlockedUrls;
-        }
-    }
-
-    // Same-site picks should become site-level selector rules, not global hostname blocks.
-    if (selector && site) {
-        const { blockedSelectors = {} } = await chrome.storage.local.get('blockedSelectors');
-        const existing = blockedSelectors[site] || [];
-        if (!existing.includes(selector)) {
-            updates.blockedSelectors = { ...blockedSelectors, [site]: [...existing, selector] };
-        }
-    }
-
-    if (Object.keys(updates).length) {
-        await chrome.storage.local.set(updates);
-    }
+async function addBlockedElement(selector, site) {
+    const { blockedSelectors = {} } = await chrome.storage.local.get('blockedSelectors');
+    const existing = blockedSelectors[site] || [];
+    if (existing.includes(selector)) return { added: false };
+    await chrome.storage.local.set({ blockedSelectors: { ...blockedSelectors, [site]: [...existing, selector] } });
+    return { added: true };
 }
 
-async function importRules({ blockedUrls = [], blockedSelectors = {} }) {
-    const normalizedUrls = blockedUrls
-        .map((entry) => (typeof entry === 'string' ? entry : entry.hostname))
-        .filter(Boolean);
-
-    const normalizedSelectors = {};
-    if (!Array.isArray(blockedSelectors) && blockedSelectors && typeof blockedSelectors === 'object') {
-        for (const [site, list] of Object.entries(blockedSelectors)) {
-            normalizedSelectors[site] = list
-                .map((entry) => (typeof entry === 'string' ? entry : entry.selector))
-                .filter(Boolean);
-        }
+async function importRules(data) {
+    if (!data || typeof data !== 'object' || Array.isArray(data)) throw new Error('Invalid rules file.');
+    const { blockedUrls = [], blockedSelectors = {} } = data;
+    if (!Array.isArray(blockedUrls) || !blockedSelectors || typeof blockedSelectors !== 'object' || Array.isArray(blockedSelectors)) {
+        throw new Error('Invalid rules file.');
     }
-
-    await chrome.storage.local.set({
-        blockedUrls: normalizedUrls,
-        blockedSelectors: normalizedSelectors,
-    });
+    const normalizedUrls = [...new Set(blockedUrls
+        .map(entry => typeof entry === 'string' ? entry : entry?.hostname)
+        .filter(entry => typeof entry === 'string' && entry.length))];
+    const normalizedSelectors = Object.create(null);
+    for (const [site, list] of Object.entries(blockedSelectors)) {
+        if (!Array.isArray(list)) throw new Error(`Invalid element rules for ${site}.`);
+        const selectors = [...new Set(list
+            .map(entry => typeof entry === 'string' ? entry : entry?.selector)
+            .filter(entry => typeof entry === 'string' && entry.length && entry.length <= 16384))];
+        if (selectors.length) normalizedSelectors[site] = selectors;
+    }
+    await chrome.storage.local.set({ blockedUrls: normalizedUrls, blockedSelectors: normalizedSelectors });
 }
 
-chrome.storage.onChanged.addListener((changes) => {
-    if (changes.disabledSites || changes.blockedUrls) syncDynamicRules();
+// Serialize read/modify/write operations so rapid picks from multiple tabs cannot
+// overwrite each other. Rejections must not poison the queue.
+let mutationQueue = Promise.resolve();
+function mutate(task) {
+    const result = mutationQueue.then(task);
+    mutationQueue = result.catch(() => {});
+    return result;
+}
+let syncQueue = Promise.resolve();
+function scheduleRuleSync() {
+    syncQueue = syncQueue.catch(() => {}).then(syncDynamicRules);
+    syncQueue.catch(console.error);
+}
+
+async function removeBlockedElement(selector, site) {
+    const { blockedSelectors = {} } = await chrome.storage.local.get('blockedSelectors');
+    const next = { ...blockedSelectors };
+    const selectors = (next[site] || []).filter(entry => entry !== selector);
+    if (selectors.length) next[site] = selectors;
+    else delete next[site];
+    await chrome.storage.local.set({ blockedSelectors: next });
+}
+
+chrome.storage.onChanged.addListener((changes, area) => {
+    if (area === 'local' && (changes.disabledSites || changes.blockedUrls)) scheduleRuleSync();
 });
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+    let task;
     if (msg.action === 'startPicker') {
-        startPicker(msg.tabId).catch(console.error);
-    } else if (msg.action === 'blockElement') {
-        addBlockedElement(msg.url, msg.selector, msg.site || '').catch(console.error);
+        task = startPicker(msg.tabId);
+    } else if (msg.action === 'blockElement' || msg.action === 'removeBlockedElement') {
+        let site = msg.site;
+        if (sender.tab) {
+            try { site = new URL(sender.url || sender.tab.url).hostname; } catch (_) { site = ''; }
+        }
+        if (typeof site !== 'string' || !site || typeof msg.selector !== 'string' || !msg.selector || msg.selector.length > 16384) {
+            sendResponse({ ok: false, error: 'Invalid element rule.' });
+            return false;
+        }
+        task = mutate(() => msg.action === 'blockElement'
+            ? addBlockedElement(msg.selector, site)
+            : removeBlockedElement(msg.selector, site));
+    } else if (msg.action === 'clearBlockedElements' && typeof msg.site === 'string' && !sender.tab) {
+        task = mutate(async () => {
+            const { blockedSelectors = {} } = await chrome.storage.local.get('blockedSelectors');
+            const next = { ...blockedSelectors };
+            delete next[msg.site];
+            await chrome.storage.local.set({ blockedSelectors: next });
+        });
     } else if (msg.action === 'importRules') {
-        importRules(msg.data).then(() => sendResponse({ ok: true })).catch(console.error);
-        return true;
-    }
+        task = mutate(() => importRules(msg.data));
+    } else return false;
+    task.then(result => sendResponse({ ok: true, ...result }))
+        .catch(error => sendResponse({ ok: false, error: error.message || 'The operation failed.' }));
+    return true;
 });
 
-chrome.runtime.onInstalled.addListener(syncDynamicRules);
-chrome.runtime.onStartup.addListener(syncDynamicRules);
+chrome.runtime.onInstalled.addListener(scheduleRuleSync);
+chrome.runtime.onStartup.addListener(scheduleRuleSync);

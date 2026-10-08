@@ -24,7 +24,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;w
 .card-label{font-size:13px;font-weight:600;color:var(--text)}
 .card-host{font-size:11px;color:var(--sub);margin-top:4px;max-width:155px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .switch{position:relative;display:inline-block;flex-shrink:0;cursor:pointer}
-.switch input{display:none}
+.switch input{position:absolute;inset:0;opacity:0;width:100%;height:100%;cursor:pointer}
+.switch input:focus-visible~.track{outline:2px solid var(--text);outline-offset:3px}
+.switch input:disabled~.track{opacity:.4}
+button:disabled{opacity:.4;cursor:default}
+.notice{padding:8px 20px;color:#ff91a8;font-size:12px;line-height:1.4}
+.notice:empty{display:none}
 .track{display:block;width:46px;height:26px;background:var(--border);border-radius:26px;border:1.5px solid #2a3344;transition:background .28s,border-color .28s;position:relative}
 .thumb{position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:var(--muted);box-shadow:0 1px 4px rgba(0,0,0,.4);transition:transform .28s cubic-bezier(.34,1.56,.64,1),background .28s}
 .switch input:checked~.track{background:rgba(35,209,96,.15);border-color:rgba(35,209,96,.4)}
@@ -80,10 +85,21 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;w
     <div class="card-host" id="toggle-host">—</div>
   </div>
   <label class="switch">
-    <input type="checkbox" id="site-toggle" checked>
+    <input type="checkbox" id="site-toggle" aria-label="Enable on this site" checked>
     <span class="track"><span class="thumb"></span></span>
   </label>
 </div>
+<div class="card">
+  <div class="card-left">
+    <div class="card-label">Block scripted popups</div>
+    <div class="card-host" title="Stops window.open from opening new tabs and windows. Normal links still work.">All sites · new tabs &amp; windows</div>
+  </div>
+  <label class="switch">
+    <input type="checkbox" id="popup-toggle" aria-label="Block scripted popups on all enabled sites" checked>
+    <span class="track"><span class="thumb"></span></span>
+  </label>
+</div>
+<div class="notice" id="notice" role="status" aria-live="polite"></div>
 <button class="picker-btn" id="editor-btn">
   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
     <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>

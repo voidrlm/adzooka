@@ -11,6 +11,9 @@
     const $file = document.getElementById('import-file');
     const $rulesList = document.getElementById('rules-list');
     const $rulesClear = document.getElementById('rules-clear');
+    const $popupToggle = document.getElementById('popup-toggle');
+    const $notice = document.getElementById('notice');
+    let supported = false;
 
     let host = '';
     let tabId = null;
@@ -19,14 +22,20 @@
         const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
         host = tab?.url ? new URL(tab.url).hostname : '';
         tabId = tab?.id ?? null;
+        supported = !!tab?.url && /^https?:/.test(new URL(tab.url).protocol);
     } catch (_) {}
 
     $h.textContent = host || 'No site';
+    $t.disabled = !supported;
+    if (!supported) $notice.textContent = 'Open a website to use the element picker.';
 
     const escapeHtml = (value) =>
         value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
     const labelForSelector = (selector) => {
+        if (selector.startsWith('adzooka-shadow:')) {
+            try { return JSON.parse(selector.slice('adzooka-shadow:'.length)).join(' → '); } catch (_) {}
+        }
         if (selector.startsWith('adzooka-frame-cluster:')) {
             try {
                 const rule = JSON.parse(selector.slice('adzooka-frame-cluster:'.length));
@@ -51,17 +60,6 @@
         return blockedSelectors[host] || [];
     };
 
-    const setSiteSelectors = async (selectors) => {
-        if (!host) return;
-        const blockedSelectors = await getBlockedSelectorsMap();
-        const next = { ...blockedSelectors };
-
-        if (selectors.length) next[host] = selectors;
-        else delete next[host];
-
-        await chrome.storage.local.set({ blockedSelectors: next });
-    };
-
     const renderRules = async () => {
         const selectors = await getSiteSelectors();
         $rulesClear.style.visibility = selectors.length ? 'visible' : 'hidden';
@@ -82,9 +80,22 @@
             .join('');
     };
 
-    const { disabledSites = [] } = await chrome.storage.local.get('disabledSites');
+    const { disabledSites = [], popupBlockingEnabled = true } = await chrome.storage.local.get(['disabledSites', 'popupBlockingEnabled']);
+    $popupToggle.checked = popupBlockingEnabled;
+    $popupToggle.addEventListener('change', async () => {
+        $popupToggle.disabled = true;
+        try {
+            await chrome.storage.local.set({ popupBlockingEnabled: $popupToggle.checked });
+            $notice.textContent = '';
+        } catch (error) {
+            $popupToggle.checked = !$popupToggle.checked;
+            $notice.textContent = error.message || 'Could not save popup settings.';
+        } finally { $popupToggle.disabled = false; }
+    });
     const apply = (disabled) => {
         $t.checked = !disabled;
+        $btn.disabled = !supported || disabled;
+        $btn.title = disabled ? 'Enable this site to pick elements.' : '';
         $s.textContent = disabled ? 'Paused on this site' : 'Active';
         $s.style.color = disabled ? 'var(--muted)' : '';
         $d.classList.toggle('off', disabled);
@@ -110,10 +121,17 @@
         window.close();
     });
 
-    $btn.addEventListener('click', () => {
-        if (tabId === null) return;
-        chrome.runtime.sendMessage({ action: 'startPicker', tabId });
-        setTimeout(() => window.close(), 150);
+    $btn.addEventListener('click', async () => {
+        if (tabId === null || !supported) return;
+        $btn.disabled = true;
+        try {
+            const response = await chrome.runtime.sendMessage({ action: 'startPicker', tabId });
+            if (!response?.ok) throw new Error(response?.error || 'Could not start the picker.');
+            window.close();
+        } catch (error) {
+            $notice.textContent = error.message || 'This page does not allow element picking.';
+            $btn.disabled = false;
+        }
     });
 
     $rulesList.addEventListener('click', async (event) => {
@@ -124,21 +142,18 @@
         const index = Number(button.dataset.index);
         if (Number.isNaN(index) || index < 0 || index >= selectors.length) return;
 
-        selectors.splice(index, 1);
-        await setSiteSelectors(selectors);
+        const response = await chrome.runtime.sendMessage({ action: 'removeBlockedElement', selector: selectors[index], site: host });
+        if (!response?.ok) $notice.textContent = response?.error || 'Could not remove the rule.';
         await renderRules();
-
-        if (tabId !== null) chrome.tabs.reload(tabId);
     });
 
     $rulesClear.addEventListener('click', async () => {
         const selectors = await getSiteSelectors();
         if (!selectors.length) return;
 
-        await setSiteSelectors([]);
+        const response = await chrome.runtime.sendMessage({ action: 'clearBlockedElements', site: host });
+        if (!response?.ok) $notice.textContent = response?.error || 'Could not clear the rules.';
         await renderRules();
-
-        if (tabId !== null) chrome.tabs.reload(tabId);
     });
 
     $exp.addEventListener('click', async () => {
@@ -178,7 +193,14 @@
             return;
         }
 
-        await chrome.runtime.sendMessage({ action: 'importRules', data });
+        try {
+            const response = await chrome.runtime.sendMessage({ action: 'importRules', data });
+            if (!response?.ok) throw new Error(response?.error || 'Could not import rules.');
+        } catch (error) {
+            $notice.textContent = error.message;
+            $file.value = '';
+            return;
+        }
         await renderRules();
 
         if (tabId !== null) chrome.tabs.reload(tabId);
@@ -194,7 +216,10 @@
         setTimeout(() => window.close(), 1200);
     });
 
-    chrome.storage.onChanged.addListener((changes) => {
+    chrome.storage.onChanged.addListener((changes, area) => {
+        if (area !== 'local') return;
+        if (changes.popupBlockingEnabled) $popupToggle.checked = changes.popupBlockingEnabled.newValue !== false;
+        if (changes.disabledSites) apply((changes.disabledSites.newValue || []).includes(host));
         if (changes.blockedSelectors) {
             renderRules().catch(console.error);
         }
