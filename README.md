@@ -21,6 +21,19 @@ It blocks scripted new tabs/windows (including scripted sign-in windows); normal
 same-window navigation remain available. Turn it off when a site needs a scripted window.
 Settings apply live after extension storage is read. This does not remove in-page dialogs.
 
+## Video ads
+
+Video-ad handling runs automatically on enabled sites and in embedded HTTP(S) players.
+It recognizes visible player-local ad labels and available **Skip ad** controls, including
+Fluid Player's nested skip link. Confirmed ads are muted and blacked out; short, seekable
+ad clips can be advanced to their end. The player's own skip/end handling resumes content.
+Mute and visual settings are restored on source changes, when ad indicators disappear,
+or when the site is paused. Normal volume and playback speed are preserved.
+
+Detection watches added media and player changes, batches scans, and polls only while
+videos are playing. It does not identify advertising baked into the main video, and some
+players reject seeking or synthetic skip clicks. Those players need a site-specific adapter.
+
 ## Checks
 
 Node.js 22+ and Chrome are required; no npm dependencies are needed:
