@@ -1,3 +1,4 @@
 _metadata/
 .update-tmp/
+.claude/
 .claude/settings.local.json
