@@ -60,8 +60,13 @@
         return blockedSelectors[host] || [];
     };
 
+    let renderedSelectors = [];
+    let renderRevision = 0;
     const renderRules = async () => {
+        const revision = ++renderRevision;
         const selectors = await getSiteSelectors();
+        if (revision !== renderRevision) return;
+        renderedSelectors = selectors;
         $rulesClear.style.visibility = selectors.length ? 'visible' : 'hidden';
 
         if (!selectors.length) {
@@ -138,11 +143,11 @@
         const button = event.target.closest('.rule-remove');
         if (!button) return;
 
-        const selectors = await getSiteSelectors();
         const index = Number(button.dataset.index);
-        if (Number.isNaN(index) || index < 0 || index >= selectors.length) return;
+        const selector = renderedSelectors[index];
+        if (!selector) return;
 
-        const response = await chrome.runtime.sendMessage({ action: 'removeBlockedElement', selector: selectors[index], site: host });
+        const response = await chrome.runtime.sendMessage({ action: 'removeBlockedElement', selector, site: host });
         if (!response?.ok) $notice.textContent = response?.error || 'Could not remove the rule.';
         await renderRules();
     });

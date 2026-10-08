@@ -49,11 +49,6 @@
         return results;
     }
 
-    function querySelectorIncludingShadow(selector, root = document) {
-        const results = querySelectorAllIncludingShadow(selector, root);
-        return results.length > 0 ? results[0] : null;
-    }
-
     chrome.storage.local.get('disabledSites', ({ disabledSites = [] }) => {
         siteEnabled = !disabledSites.includes(site);
     });
