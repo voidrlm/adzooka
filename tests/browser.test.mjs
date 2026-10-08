@@ -294,3 +294,173 @@ test('popup settings cross the isolated-world boundary regardless of injection o
     await isolated('changeSetting({popupBlockingEnabled:{newValue:false}},"local")');
     assert.equal(await evaluate('window.open("/test")'), 'native-result');
 });
+
+// Real DOM controls with deterministic media timing: no network videos or ad endpoints.
+async function videoFixture(markup = '<div class="fluid_video_wrapper" style="position:relative;width:640px;height:360px"><video style="width:640px;height:360px"></video><div class="fluid_ad_playing" style="position:absolute;bottom:0;left:10px">Advertisement</div></div>') {
+    await setup(markup);
+    await evaluate(`window.prepareVideo = video => {
+        let time=9;
+        Object.defineProperties(video, {
+            duration: {configurable:true,get:()=>36},
+            paused: {configurable:true,get:()=>false},
+            ended: {configurable:true,get:()=>false},
+            seeking: {configurable:true,get:()=>false},
+            seekable: {configurable:true,get:()=>({length:1,start:()=>0,end:()=>36})},
+            currentTime: {configurable:true,get:()=>time,set:value=>{time=value;window.seeks.push(value)}},
+            currentSrc: {configurable:true,get:()=>window.mediaSource || 'https://media.example/ad.mp4'}
+        });
+        video.volume=0.6;video.playbackRate=1.25;
+        return video;
+    }; window.seeks=[];window.video=prepareVideo(document.querySelector('video'));`);
+}
+
+test('video ads: screenshot-style label mutes and finishes an ad, then restores the content', async () => {
+    await videoFixture();
+    await inject('content-blocker.js');
+    await delay(180);
+    assert.equal(await evaluate('video.muted'), true);
+    assert.equal(await evaluate('video.style.filter'), 'brightness(0)');
+    assert.equal(await evaluate('video.currentTime'), 35.9);
+    assert.equal(await evaluate('video.volume'), 0.6);
+    assert.equal(await evaluate('video.playbackRate'), 1.25);
+    await evaluate('document.querySelector(".fluid_ad_playing").remove()');
+    await delay(180);
+    assert.equal(await evaluate('video.muted'), false);
+    assert.equal(await evaluate('video.style.filter'), '');
+    assert.equal(await evaluate('video.isConnected'), true);
+    assert.equal(await evaluate('seeks.length'), 1);
+});
+
+test('video ads: Fluid skip wrapper clicks its inner link and leaves new content alone', async () => {
+    await videoFixture();
+    await evaluate(`const skip=document.createElement('div');skip.className='skip_button';skip.style='position:absolute;right:0;bottom:40px';
+        skip.innerHTML='<a href="#">Skip ad &gt;&gt;</a>';document.querySelector('.fluid_video_wrapper').append(skip);
+        window.skipClicks=0;skip.querySelector('a').onclick=event=>{event.preventDefault();skipClicks++;
+            document.querySelector('.fluid_ad_playing').remove();skip.remove();};`);
+    await inject('content-blocker.js');
+    await delay(220);
+    assert.equal(await evaluate('skipClicks'), 1);
+    assert.equal(await evaluate('video.muted'), false);
+    assert.equal(await evaluate('seeks.length'), 0);
+});
+
+test('video ads: skip countdown is not clicked until enabled, including div controls', async () => {
+    await videoFixture();
+    await evaluate(`const skip=document.createElement('div');skip.className='skip_button skip_button_disabled';
+        skip.style='position:absolute;right:0;bottom:40px';skip.textContent='Skip ad in 5';
+        document.querySelector('.fluid_video_wrapper').append(skip);window.skipClicks=0;skip.onclick=()=>skipClicks++;`);
+    await inject('content-blocker.js');
+    await delay(180);
+    assert.equal(await evaluate('skipClicks'), 0);
+    await evaluate(`{ const skip=document.querySelector('.skip_button');skip.classList.remove('skip_button_disabled');skip.textContent='Skip ad >>'; }`);
+    await delay(180);
+    assert.equal(await evaluate('skipClicks'), 1);
+});
+
+test('video ads: outside text, subscription prompts, hidden controls and short CDN videos are not ad evidence', async () => {
+    await videoFixture('<p>Advertisement · Skip ad · Remove ads</p><div class="video-js" style="position:relative;width:640px;height:360px"><video style="width:640px;height:360px"></video><div style="display:none"><button>Skip ad</button></div><span>Subscribe to remove ads</span></div>');
+    await inject('content-blocker.js');
+    await delay(550);
+    assert.equal(await evaluate('video.muted'), false);
+    assert.equal(await evaluate('seeks.length'), 0);
+    assert.equal(await evaluate('video.style.filter'), '');
+});
+
+test('video ads: source changes release mute immediately even if stale ad UI remains', async () => {
+    await videoFixture();
+    await inject('content-blocker.js');
+    await delay(180);
+    await evaluate(`window.mediaSource='https://media.example/content.mp4';video.dispatchEvent(new Event('loadstart'));`);
+    assert.equal(await evaluate('video.muted'), false);
+    await delay(550);
+    assert.equal(await evaluate('video.style.filter'), '');
+    assert.equal(await evaluate('seeks.length'), 1);
+});
+
+test('video ads: pausing Adzooka restores media settings and permits re-enabling', async () => {
+    await videoFixture();
+    await evaluate('video.style.setProperty("filter","contrast(1.1)","important");video.muted=true');
+    await inject('content-blocker.js');
+    await delay(180);
+    await evaluate('chrome.storage.local.set({disabledSites:[location.hostname]})');
+    assert.equal(await evaluate('video.style.filter'), 'contrast(1.1)');
+    assert.equal(await evaluate('video.style.getPropertyPriority("filter")'), 'important');
+    assert.equal(await evaluate('video.muted'), true);
+    await evaluate('chrome.storage.local.set({disabledSites:[]})');
+    await delay(180);
+    assert.equal(await evaluate('video.style.filter'), 'brightness(0)');
+});
+
+test('video ads: open shadow players are handled and detached media is restored', async () => {
+    await videoFixture();
+    await evaluate(`const host=document.createElement('div');document.body.append(host);
+        const shadow=host.attachShadow({mode:'open'});shadow.append(document.querySelector('.fluid_video_wrapper'));window.videoHost=host;`);
+    await inject('content-blocker.js');
+    await delay(180);
+    assert.equal(await evaluate('video.muted'), true);
+    await evaluate('videoHost.remove()');
+    await delay(180);
+    assert.equal(await evaluate('video.muted'), false);
+    assert.equal(await evaluate('video.style.filter'), '');
+});
+
+test('video ads: player reuse, paused playback and live streams are not forcibly sought', async () => {
+    await videoFixture();
+    await evaluate('Object.defineProperty(video,"duration",{configurable:true,get:()=>Infinity})');
+    await inject('content-blocker.js');
+    await delay(180);
+    assert.equal(await evaluate('seeks.length'), 0);
+    assert.equal(await evaluate('video.muted'), true);
+    await evaluate('Object.defineProperty(video,"paused",{configurable:true,get:()=>true});video.dispatchEvent(new Event("pause"))');
+    await delay(180);
+    assert.equal(await evaluate('video.muted'), false);
+    assert.equal(await evaluate('video.style.filter'), '');
+});
+
+test('video ads: generic player controls work but nearby article labels do not', async () => {
+    await videoFixture('<main style="height:2000px"><video style="width:640px;height:360px"></video><div>Advertisement</div></main>');
+    await inject('content-blocker.js');
+    await delay(180);
+    assert.equal(await evaluate('video.muted'), false);
+    assert.equal(await evaluate('seeks.length'), 0);
+    await evaluate(`const wrapper=document.createElement('div');wrapper.style='position:relative;width:640px;height:360px';
+        video.before(wrapper);wrapper.append(video);const button=document.createElement('div');
+        button.textContent='Skip ad >>';button.style='position:absolute;bottom:20px;right:0';wrapper.append(button);
+        window.genericClicks=0;button.onclick=()=>{genericClicks++;button.remove()};`);
+    await delay(200);
+    assert.equal(await evaluate('genericClicks'), 1);
+});
+
+test('video ads: embedded players execute in their own frame', async () => {
+    await setup('<iframe style="width:700px;height:450px"></iframe>');
+    await evaluate(`document.querySelector('iframe').srcdoc='<div class="video-js" style="position:relative;width:640px;height:360px"><video style="width:640px;height:360px"></video><button style="position:absolute;bottom:0">Skip ad</button></div>'`);
+    await delay(80);
+    const {frameTree}=await command('Page.getFrameTree');
+    const {executionContextId}=await command('Page.createIsolatedWorld',{frameId:frameTree.childFrames[0].frame.id,worldName:'video-ad-test'});
+    const frameEval=async expression=>{
+        const result=await command('Runtime.evaluate',{expression,contextId:executionContextId,awaitPromise:true,returnByValue:true});
+        if(result.exceptionDetails) throw new Error(result.exceptionDetails.exception?.description || result.exceptionDetails.text);
+        return result.result.value;
+    };
+    await frameEval(`window.chrome={storage:{local:{get:async()=>({disabledSites:[]})},onChanged:{addListener(){}}}};
+        Object.defineProperty(document.querySelector('video'),'paused',{get:()=>false});
+        window.skipped=0;document.querySelector('button').onclick=event=>{skipped++;event.target.remove()};`);
+    await frameEval(await readFile(new URL('../content-blocker.js',import.meta.url),'utf8'));
+    await delay(180);
+    assert.equal(await frameEval('skipped'),1);
+});
+
+test('video ads: no-media pages do not poll and detached shadow observers are disconnected', async () => {
+    await setup('<div id="host"></div>');
+    await evaluate(`document.querySelector('#host').attachShadow({mode:'open'}).innerHTML='<span>not a video</span>';
+        window.polls=0;const realTimeout=window.setTimeout;window.setTimeout=(callback,delay,...args)=>{polls++;return realTimeout(callback,delay,...args)};
+        window.disconnects=0;const realDisconnect=MutationObserver.prototype.disconnect;
+        MutationObserver.prototype.disconnect=function(){disconnects++;return realDisconnect.call(this)};`);
+    await inject('content-blocker.js');
+    await delay(550);
+    assert.equal(await evaluate('polls'),1);
+    await evaluate('document.querySelector("#host").remove()');
+    await delay(100);
+    assert.ok(await evaluate('disconnects')>=1);
+    assert.equal(await evaluate('polls'),1);
+});

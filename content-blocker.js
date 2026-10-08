@@ -1,638 +1,264 @@
-(function () {
-    if (location.hostname.includes('youtube.com')) return;
-
-    const site = window.location.hostname;
-    const VIDEO_AD_TEXT_RE = /\b(skip\s+(?:ad|ads)|skip\s+in\s+\d|advertisement|commercial\s+break|your\s+video\s+will\s+resume|this\s+ad\s+will\s+end\s+in|remove\s+ads?|log\s*in\s+or\s+sign\s*up\s+to\s+remove\s+ads|skip\s+ad\s*>>|ad\s+\d{1,2})\b/i;
-    const SKIP_NOW_RE = /\bskip\s+ads?\b/i;
-    const STRONG_AD_TEXT_RE = /\b(this\s+ad\s+will\s+end\s+in|remove\s+ads?|log\s*in\s+or\s+sign\s*up\s+to\s+remove\s+ads|skip\s+ad\s*>>)\b/i;
-    const MUTE_RE = /\b(mute|unmute|volume)\b/i;
-    const SUPPRESSION_HOLD_MS = 1400;
-    const RELEASE_GRACE_MS = 1200;
-    const PLAYER_COOLDOWN_MS = 2500;
-    const hiddenRoots = new WeakSet();
-    const playerState = new WeakMap();
-    let sweepTimer = null;
-    let siteEnabled = true;
-
-    function querySelectorAllIncludingShadow(selector, root = document) {
-        const results = [];
-        const visited = new Set();
-
-        function traverse(node) {
-            if (!node || visited.has(node)) return;
-            visited.add(node);
-
-            if (node.nodeType === Node.ELEMENT_NODE) {
-                try {
-                    const matches = node.querySelectorAll(selector);
-                    for (const match of matches) {
-                        if (!visited.has(match)) {
-                            visited.add(match);
-                            results.push(match);
-                        }
-                    }
-                } catch (_) {}
-
-                // Check shadow root
-                if (node.shadowRoot) {
-                    traverse(node.shadowRoot);
-                }
-
-                // Traverse children
-                for (const child of node.children) {
-                    traverse(child);
-                }
-            }
-        }
-
-        traverse(root);
-        return results;
-    }
-
-    chrome.storage.local.get('disabledSites', ({ disabledSites = [] }) => {
-        siteEnabled = !disabledSites.includes(site);
-    });
-    chrome.storage.onChanged.addListener((changes, area) => {
-        if (area === 'local' && changes.disabledSites) {
-            siteEnabled = !(changes.disabledSites.newValue || []).includes(site);
-        }
-    });
-
-    function isSearchUiHost() {
-        return /(^|\.)google\./i.test(site) ||
-            /(^|\.)bing\.com$/i.test(site) ||
-            /(^|\.)duckduckgo\.com$/i.test(site) ||
-            /(^|\.)search\.yahoo\.com$/i.test(site);
-    }
-
-    function isDomElement(el) {
-        return !!el &&
-            el.nodeType === Node.ELEMENT_NODE &&
-            typeof el.matches === 'function' &&
-            typeof el.getAttribute === 'function';
-    }
-
-    function safeRect(el) {
-        if (!isDomElement(el) || typeof el.getBoundingClientRect !== 'function') return null;
+// Video ad handling is independent of cosmetic element rules. YouTube has its own adapter.
+(() => {
+    if (/(^|\.)youtube\.com$/i.test(location.hostname)) return;
+    const PLAYER = '.fluid_video_wrapper, .video-js, .jwplayer, [data-player], [data-video-player]';
+    const AD_MODE = '.vjs-ad-playing, .jw-flag-ads, [data-ad-playing="true"]';
+    const AD_UI = '.fluid_ad_playing, .ad_countdown, .skip_button, .jw-skip, .vjs-skip-ad';
+    const SKIP = /^skip\s+(?:this\s+)?ads?(?:\s*(?:[>»›→]+|now))?\s*$/i;
+    const AD_LABEL = /^(?:advertisement|advertising|ad(?:\s+\d+\s+of\s+\d+)?|commercial\s+break|skip\s+(?:ads?\s+)?in\s+\d+(?:\s*(?:s|seconds?))?[.!…]*|skip\s+ads?\s+in\s+\d+(?:\s*(?:s|seconds?))?[.!…]*)$/i;
+    const videos = new Set();
+    const roots = new Map();
+    const suppressed = new Map();
+    const clicked = new WeakMap();
+    const skipPending = new WeakSet();
+    const waitingForContent = new WeakSet();
+    let enabled = false;
+    let suspended = false;
+    let timer = 0;
+    let dueAt = 0;
+    let revision = 0;
+    let site = location.hostname;
+    try { site = new URL(window.top.location.href).hostname; }
+    catch (_) {
         try {
-            return el.getBoundingClientRect();
-        } catch (_) {
-            return null;
-        }
-    }
-
-    function isElementVisible(el) {
-        if (!isDomElement(el)) return false;
-        let style;
-        try {
-            style = getComputedStyle(el);
-        } catch (_) {
-            return false;
-        }
-        const rect = safeRect(el);
-        if (!rect) return false;
-        return style.display !== 'none' &&
-            style.visibility !== 'hidden' &&
-            parseFloat(style.opacity || '1') > 0.01 &&
-            rect.width > 10 &&
-            rect.height > 10;
-    }
-
-    function isLargeMediaRect(rect) {
-        return rect.width >= 220 && rect.height >= 120;
-    }
-
-    function isPrimaryPlayerRect(rect) {
-        const vw = window.innerWidth || 0;
-        const vh = window.innerHeight || 0;
-        return rect.width >= Math.max(420, vw * 0.4) && rect.height >= Math.max(236, vh * 0.22);
-    }
-
-    function hasMeaningfulMedia(root = document) {
-        if (isSearchUiHost()) return false;
-
-        const candidates = querySelectorAllIncludingShadow('video, audio, iframe', root);
-        for (const node of candidates) {
-            if (!isDomElement(node) || !isElementVisible(node)) continue;
-            const rect = safeRect(node);
-            if (!rect) continue;
-            if (isLargeMediaRect(rect)) return true;
-        }
-        return false;
-    }
-
-    function elementText(el) {
-        if (!isDomElement(el)) return '';
-        return [
-            el.innerText,
-            el.textContent,
-            el.getAttribute('aria-label'),
-            el.getAttribute('title'),
-            el.getAttribute('data-testid'),
-        ].filter(Boolean).join(' ').trim();
-    }
-
-    function looksLikeSkipButton(el) {
-        if (!isDomElement(el)) return false;
-        if (!isElementVisible(el)) return false;
-        const text = elementText(el);
-        if (!SKIP_NOW_RE.test(text)) return false;
-        const tag = el.tagName;
-        return tag === 'BUTTON' || tag === 'A' || el.getAttribute('role') === 'button' || el.tabIndex >= 0;
-    }
-
-    function clickSkipButtons(root = document) {
-        const candidates = querySelectorAllIncludingShadow('button, a, div, span, [role="button"], [aria-label], [title]', root);
-        for (const node of candidates) {
-            if (!looksLikeSkipButton(node)) continue;
-            try {
-                node.click();
-                return true;
-            } catch (_) {}
-        }
-        return false;
-    }
-
-    function ensureBlackout(player) {
-        let state = playerState.get(player);
-        if (!state) {
-            state = {
-                blackout: null,
-                originalPosition: '',
-                originalMuted: null,
-                active: false,
-                holdUntil: 0,
-                lastAdSignalAt: 0,
-                cooldownUntil: 0,
-            };
-            playerState.set(player, state);
-        }
-
-        if (!(state.blackout instanceof HTMLElement)) {
-            const style = getComputedStyle(player);
-            state.originalPosition = player.style.position || '';
-            if (style.position === 'static') {
-                player.style.setProperty('position', 'relative', 'important');
-            }
-
-            const blackout = document.createElement('div');
-            blackout.textContent = 'Blocking video ad...';
-            blackout.style.cssText = [
-                'position:absolute',
-                'inset:0',
-                'display:flex',
-                'align-items:center',
-                'justify-content:center',
-                'background:#000',
-                'color:#fff',
-                'font:600 14px/1.2 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif',
-                'letter-spacing:.2px',
-                'z-index:2147483640',
-                'pointer-events:none',
-                'opacity:0',
-                'transition:opacity .12s ease',
-            ].join(';');
-            player.appendChild(blackout);
-            state.blackout = blackout;
-        }
-
-        state.blackout.style.opacity = '1';
-        state.active = true;
-        return state;
-    }
-
-    function markPlayerAdActive(player) {
-        const state = ensureBlackout(player);
-        const now = Date.now();
-        state.active = true;
-        state.lastAdSignalAt = now;
-        state.holdUntil = now + SUPPRESSION_HOLD_MS;
-        state.cooldownUntil = 0;
-        return state;
-    }
-
-    function clearBlackout(player) {
-        const state = playerState.get(player);
-        if (!state) return;
-
-        state.active = false;
-        state.holdUntil = 0;
-        state.lastAdSignalAt = 0;
-        state.cooldownUntil = Date.now() + PLAYER_COOLDOWN_MS;
-        if (state.blackout?.isConnected) {
-            state.blackout.style.opacity = '0';
-        }
-        if (state.originalMuted !== null) {
-            const media = player.matches('video, audio') ? player : player.querySelector('video, audio');
-            if (media) {
-                try { media.muted = state.originalMuted; } catch (_) {}
-            }
-            state.originalMuted = null;
-        }
-    }
-
-    function pauseMediaInside(root) {
-        for (const media of querySelectorAllIncludingShadow('video, audio', root)) {
-            try {
-                media.pause();
-            } catch (_) {}
-        }
-    }
-
-    function killAdMediaInside(root) {
-        const mediaNodes = querySelectorAllIncludingShadow('video, audio', root);
-        for (const media of mediaNodes) {
-            try { media.pause(); } catch (_) {}
-            try { media.removeAttribute('src'); } catch (_) {}
-            for (const source of querySelectorAllIncludingShadow('source', media)) {
-                try { source.removeAttribute('src'); } catch (_) {}
-            }
-            try { media.load(); } catch (_) {}
-        }
-
-        const iframes = querySelectorAllIncludingShadow('iframe', root);
-        for (const frame of iframes) {
-            try { frame.src = 'about:blank'; } catch (_) {}
-            try { frame.removeAttribute('srcdoc'); } catch (_) {}
-        }
-    }
-
-    function hostFromUrl(url) {
-        if (typeof url !== 'string' || !url.trim()) return null;
-        try {
-            return new URL(url, location.href).hostname.toLowerCase();
-        } catch (_) {
-            return null;
-        }
-    }
-
-    function findPlayableMedia(start) {
-        if (start instanceof HTMLVideoElement || start instanceof HTMLAudioElement) return start;
-        if (isDomElement(start)) {
-            const direct = start.querySelector('video, audio');
-            if (direct) return direct;
-        }
-        return null;
-    }
-
-    function findPlayerRoot(start) {
-        let node = isDomElement(start) ? start : null;
-        while (node && node !== document.body && node !== document.documentElement) {
-            const rect = safeRect(node);
-            if (!rect) {
-                node = node.parentElement;
-                continue;
-            }
-            if ((findPlayableMedia(node) || node.querySelector('iframe')) && isLargeMediaRect(rect)) {
-                return node;
-            }
-            node = node.parentElement;
-        }
-        return null;
-    }
-
-    function isLikelyPreviewMedia(media) {
-        if (!(media instanceof HTMLMediaElement)) return false;
-        const rect = media.getBoundingClientRect();
-        const player = findPlayerRoot(media);
-        const playerRect = player?.getBoundingClientRect?.() || rect;
-        const anchored = !!media.closest('a');
-        const muted = !!media.muted;
-        const noControls = !media.controls;
-        const loops = !!media.loop;
-        const smallish = playerRect.width < 420 || playerRect.height < 236;
-        return smallish && muted && noControls && (loops || anchored);
-    }
-
-    function rectsOverlap(a, b, padding = 0) {
-        if (!a || !b) return false;
-        return !(a.right < b.left - padding ||
-            a.left > b.right + padding ||
-            a.bottom < b.top - padding ||
-            a.top > b.bottom + padding);
-    }
-
-    function hasTextMarkerNearPlayer(player, regex) {
-        if (!isDomElement(player)) return false;
-        const playerRect = safeRect(player);
-        if (!playerRect) return false;
-        const scopes = [player];
-        if (player.parentElement) scopes.push(player.parentElement);
-        if (player.parentElement?.parentElement) scopes.push(player.parentElement.parentElement);
-
-        let seen = 0;
-        for (const scope of scopes) {
-            if (!(scope instanceof HTMLElement)) continue;
-            if (regex.test(elementText(scope))) return true;
-
-            const nodes = querySelectorAllIncludingShadow('button, a, div, span, p, section, aside, strong, small, [role="dialog"], [aria-label], [title]', scope);
-            for (const node of nodes) {
-                if (!isDomElement(node) || !isElementVisible(node)) continue;
-                const text = elementText(node);
-                if (!text || !regex.test(text)) continue;
-                if (rectsOverlap(playerRect, safeRect(node), 24)) return true;
-                seen += 1;
-                if (seen > 250) return false;
-            }
-        }
-
-        return false;
-    }
-
-    function forceFinishMediaAd(media) {
-        if (!(media instanceof HTMLMediaElement)) return;
-
-        // Never manipulate long-form content (> 3 min) without a confirmed strong ad signal
-        if (Number.isFinite(media.duration) && media.duration > 180) {
-            const player = findPlayerRoot(media) || media.parentElement;
-            if (!player || !hasTextMarkerNearPlayer(player, STRONG_AD_TEXT_RE)) return;
-        }
-
-        try {
-            const player = findPlayerRoot(media) || media.parentElement;
-            const state = player ? playerState.get(player) : null;
-            const hasLocalAdMarker = player ? hasTextMarkerNearPlayer(player, VIDEO_AD_TEXT_RE) : false;
-            if (player && state?.cooldownUntil > Date.now() && !hasLocalAdMarker) {
-                return;
-            }
-
-            const activeState = player ? markPlayerAdActive(player) : null;
-            if (activeState && activeState.originalMuted === null) {
-                activeState.originalMuted = media.muted;
-            }
-
-            media.muted = true;
-            media.volume = 0;
-        } catch (_) {}
-
-        try {
-            if (Number.isFinite(media.duration) && media.duration > 1) {
-                media.currentTime = Math.max(media.duration - 0.05, media.currentTime + 30);
-            }
-        } catch (_) {}
-
-        try {
-            media.playbackRate = Math.max(media.playbackRate || 1, 16);
-        } catch (_) {}
-
-        try {
-            media.play().catch?.(() => {});
+            const origins = location.ancestorOrigins;
+            if (origins?.length) site = new URL(origins[origins.length - 1]).hostname;
         } catch (_) {}
     }
 
-    function neutralizePlayerAd(root) {
-        const player = findPlayerRoot(root);
-        if (!player) return false;
+    function visible(element) {
+        if (!element?.isConnected || !element.getClientRects().length) return false;
+        return element.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true });
+    }
 
-        const media = findPlayableMedia(player);
-        if (media) {
-            // Don't touch long-form content that lacks ad markers within the player
-            if (Number.isFinite(media.duration) && media.duration > 60 &&
-                !hasTextMarkerNearPlayer(player, VIDEO_AD_TEXT_RE)) {
-                return false;
-            }
-            if (root instanceof HTMLElement && root !== player) {
-                root.style.setProperty('display', 'none', 'important');
-                root.style.setProperty('visibility', 'hidden', 'important');
-                root.style.setProperty('pointer-events', 'none', 'important');
-            }
-            forceFinishMediaAd(media);
-            return true;
+    function parent(element) { return element.parentElement || element.getRootNode()?.host || null; }
+
+    function scopeFor(video) {
+        // Never climb to an article/body and mistake surrounding prose for player UI.
+        const rect = video.getBoundingClientRect();
+        let fallback = !video.parentElement && video.getRootNode() instanceof ShadowRoot ? video.getRootNode() : video;
+        for (let node = parent(video), depth = 0; node && depth < 6; node = parent(node), depth++) {
+            if (node === document.body || node === document.documentElement) break;
+            if (node.matches(PLAYER)) return node;
+            const box = node.getBoundingClientRect();
+            if (box.width > rect.width * 1.3 + 40 || box.height > rect.height * 1.3 + 100) break;
+            if (node.querySelectorAll('video').length > 1) break;
+            fallback = node;
         }
-
-        const frame = player.querySelector('iframe');
-        if (frame) {
-            killAdMediaInside(player);
-            ensureBlackout(player);
-            try { frame.src = 'about:blank'; } catch (_) {}
-            return true;
-        }
-
-        return false;
-    }
-
-    function hideRoot(root) {
-        if (!isDomElement(root) || hiddenRoots.has(root)) return;
-        hiddenRoots.add(root);
-        killAdMediaInside(root);
-        pauseMediaInside(root);
-        root.style.setProperty('display', 'none', 'important');
-        root.style.setProperty('visibility', 'hidden', 'important');
-        root.style.setProperty('pointer-events', 'none', 'important');
-    }
-
-    function isLargeOverlay(el) {
-        if (!isDomElement(el)) return false;
-        const style = getComputedStyle(el);
-        const rect = safeRect(el);
-        if (!rect) return false;
-        const z = parseInt(style.zIndex, 10) || 0;
-        const vw = window.innerWidth || 0;
-        const vh = window.innerHeight || 0;
-        const coversEnough = rect.width >= vw * 0.35 && rect.height >= vh * 0.2;
-        return ['fixed', 'absolute', 'sticky'].includes(style.position) && z >= 10 && coversEnough;
-    }
-
-    function hasMediaSignals(el) {
-        if (!isDomElement(el)) return false;
-        if (el.matches('video, iframe')) return true;
-        if (el.querySelector('video, iframe')) return true;
-        const text = elementText(el);
-        if (MUTE_RE.test(text) && isLargeOverlay(el)) return true;
-        return false;
-    }
-
-    function findVideoAdRoot(start) {
-        let node = isDomElement(start) ? start : null;
-        let fallback = null;
-
-        while (node && node !== document.body && node !== document.documentElement) {
-            const text = elementText(node);
-            if (VIDEO_AD_TEXT_RE.test(text) && isLargeOverlay(node)) {
-                fallback = node;
-                if (hasMediaSignals(node)) return node;
-            }
-            if (isLargeOverlay(node) && hasMediaSignals(node) && fallback) {
-                return node;
-            }
-            node = node.parentElement;
-        }
-
         return fallback;
     }
 
-    function releaseFinishedPlayers() {
-        const now = Date.now();
-        for (const video of document.querySelectorAll('video, audio')) {
-            const player = findPlayerRoot(video);
-            if (!player) continue;
-            const state = playerState.get(player);
-            if (!state?.active) continue;
+    function overlaps(element, videoRect) {
+        const box = element.getBoundingClientRect();
+        return box.right >= videoRect.left && box.left <= videoRect.right &&
+            box.bottom >= videoRect.top - 12 && box.top <= videoRect.bottom + 48;
+    }
 
-            const inAdMode = hasTextMarkerNearPlayer(player, VIDEO_AD_TEXT_RE) || isAdUiNear(player) || isAdUiNear(video.parentElement);
-            if (inAdMode) {
-                state.lastAdSignalAt = now;
-                state.holdUntil = Math.max(state.holdUntil || 0, now + 250);
-                continue;
+    function label(element) {
+        const attribute = element.getAttribute('aria-label') || element.getAttribute('title');
+        if (attribute && attribute.length < 100) return attribute.trim();
+        // Read only small controls, never the text of a whole player/page subtree.
+        if (element.childElementCount > 3) return '';
+        const text = element.textContent;
+        return text.length <= 100 ? text.replace(/\s+/g, ' ').trim() : '';
+    }
+
+    function signals(scope, video) {
+        if (!scope?.querySelectorAll) return { ad: false, skip: null };
+        let ad = scope.matches?.(AD_MODE) || false;
+        let skip = null;
+        const rect = video.getBoundingClientRect();
+        const candidates = scope.querySelectorAll(`${AD_UI}, button, a, [role="button"], [aria-label], span, div, small`);
+        for (const element of candidates) {
+            if (element === video || element.contains(video)) continue;
+            if (!visible(element) || !overlaps(element, rect)) continue;
+            const text = label(element);
+            const ready = SKIP.test(text);
+            const marker = element.matches(AD_UI);
+            if (marker || ready || (element.childElementCount === 0 && AD_LABEL.test(text))) ad = true;
+            if (!ready || skip) continue;
+            if (element.closest('[disabled], [aria-disabled="true"], .skip_button_disabled') ||
+                /(?:^|[\s_-])disabled(?:$|[\s_-])/i.test(element.className)) continue;
+            // Fluid Player attaches the handler to its nested link, not the wrapper.
+            const control = element.querySelector('button, a, [role="button"]') || element;
+            if (control.matches('[disabled], [aria-disabled="true"]')) continue;
+            const anchor = control.closest('a[href]');
+            if (anchor) {
+                const href = anchor.getAttribute('href').trim();
+                if (href && !href.startsWith('#') && !/^javascript:\s*(?:void\s*\(\s*0\s*\)|;)?\s*;?$/i.test(href)) continue;
             }
+            if (getComputedStyle(control).pointerEvents !== 'none') skip = control;
+        }
+        return { ad, skip };
+    }
 
-            if ((state.holdUntil && now < state.holdUntil) || (state.lastAdSignalAt && now - state.lastAdSignalAt < RELEASE_GRACE_MS)) {
-                continue;
-            }
-
-            clearBlackout(player);
-            try { video.playbackRate = 1; } catch (_) {}
+    function restore(video) {
+        const state = suppressed.get(video);
+        if (!state) return;
+        suppressed.delete(video);
+        if (video.muted) video.muted = state.muted;
+        if (video.style.getPropertyValue('filter') === 'brightness(0)' &&
+            video.style.getPropertyPriority('filter') === 'important') {
+            if (state.filter) video.style.setProperty('filter', state.filter, state.filterPriority);
+            else video.style.removeProperty('filter');
         }
     }
 
-    function isAdUiNear(root) {
-        if (!isDomElement(root)) return false;
-        if (VIDEO_AD_TEXT_RE.test(elementText(root))) return true;
-        const nodes = querySelectorAllIncludingShadow('button, a, div, span, section, aside, [role="dialog"], [aria-label], [title]', root);
-        for (const node of nodes) {
-            if (isElementVisible(node) && VIDEO_AD_TEXT_RE.test(elementText(node))) return true;
+    function suppress(video) {
+        let state = suppressed.get(video);
+        if (!state) {
+            state = {
+                muted: video.muted,
+                filter: video.style.getPropertyValue('filter'),
+                filterPriority: video.style.getPropertyPriority('filter'),
+                source: video.currentSrc || video.src,
+                sought: false,
+            };
+            suppressed.set(video, state);
+            video.muted = true;
+            // Black out only the ad video. Keep the player's skip controls operable.
+            video.style.setProperty('filter', 'brightness(0)', 'important');
         }
-        return false;
-    }
-
-    function getLargestVisibleMedia() {
-        let best = null;
-        let bestArea = 0;
-        for (const media of querySelectorAllIncludingShadow('video, audio')) {
-            if (!(media instanceof HTMLMediaElement)) continue;
-            const player = findPlayerRoot(media);
-            if (!player || !isElementVisible(player)) continue;
-            const rect = safeRect(player);
-            if (!rect) continue;
-            if (!isLargeMediaRect(rect)) continue;
-            const area = rect.width * rect.height;
-            if (area > bestArea) {
-                best = media;
-                bestArea = area;
-            }
-        }
-        return best;
-    }
-
-    function mediaHostScore(media) {
-        const host = hostFromUrl(media.currentSrc || media.src || media.getAttribute('src'));
-        if (!host) return 0;
-        if (host !== location.hostname.toLowerCase()) return 2;
-        return 0;
-    }
-
-    function shortClipScore(media) {
-        if (!Number.isFinite(media.duration) || media.duration <= 0) return 0;
-        if (media.duration <= 30) return 1;
-        return 0;
-    }
-
-    function autoplayingScore(media) {
-        if (media.paused) return 0;
-        if (media.autoplay) return 1;
-        return 0;
-    }
-
-    function adScoreForMedia(media) {
-        if (!(media instanceof HTMLMediaElement)) return 0;
-        if (isLikelyPreviewMedia(media)) return 0;
-        const player = findPlayerRoot(media);
-        if (!player) return 0;
-        if (!isElementVisible(player)) return 0;
-        const rect = safeRect(player);
-        if (!rect) return 0;
-        if (!isLargeMediaRect(rect)) return 0;
-        if (!isPrimaryPlayerRect(rect) && !isAdUiNear(player)) return 0;
-
-        let score = 0;
-        if (isAdUiNear(player)) score += 4;
-        if (hasTextMarkerNearPlayer(player, VIDEO_AD_TEXT_RE)) score += 2;
-        if (hasTextMarkerNearPlayer(player, STRONG_AD_TEXT_RE)) score += 4;
-        score += mediaHostScore(media);
-        score += shortClipScore(media);
-        score += autoplayingScore(media);
-
-        return score;
-    }
-
-    function scanForVideoAds(root = document) {
-        if (!siteEnabled) return;
-        if (!hasMeaningfulMedia(root) && !hasMeaningfulMedia(document)) return;
-
-        clickSkipButtons(root);
-
-        const primary = getLargestVisibleMedia();
-        const primaryPlayer = primary ? findPlayerRoot(primary) : null;
-        if (primary && primaryPlayer && hasTextMarkerNearPlayer(primaryPlayer, STRONG_AD_TEXT_RE)) {
-            if (!isLikelyPreviewMedia(primary)) {
-                forceFinishMediaAd(primary);
-            }
-        }
-
-        if (root instanceof HTMLElement && VIDEO_AD_TEXT_RE.test(elementText(root))) {
-            const rootCandidate = findVideoAdRoot(root);
-            if (rootCandidate) {
-                if (!neutralizePlayerAd(rootCandidate)) hideRoot(rootCandidate);
-            }
-        }
-
-        const candidates = querySelectorAllIncludingShadow('button, a, div, span, section, aside, [role="dialog"], [aria-label], [title]', root);
-        for (const node of candidates) {
-            if (!(node instanceof HTMLElement)) continue;
-            const text = elementText(node);
-            if (!VIDEO_AD_TEXT_RE.test(text)) continue;
-            const adRoot = findVideoAdRoot(node);
-            if (adRoot) {
-                if (!neutralizePlayerAd(adRoot)) hideRoot(adRoot);
-            }
-        }
-
-        for (const media of querySelectorAllIncludingShadow('video, audio', root)) {
-            const player = findPlayerRoot(media);
-            if (!player) continue;
-            if (!isLikelyPreviewMedia(media) && isAdUiNear(player)) {
-                forceFinishMediaAd(media);
-            }
-        }
-
-        for (const media of querySelectorAllIncludingShadow('video, audio')) {
-            const score = adScoreForMedia(media);
-            if (score >= 6) {
-                forceFinishMediaAd(media);
+        // Let the player handle its natural ended event. Never remove its source,
+        // fabricate ended events, force autoplay, or seek a live/long content stream.
+        if (!state.sought && !video.seeking && Number.isFinite(video.duration) &&
+            video.duration > 0.3 && video.duration <= 180 && video.seekable.length) {
+            const end = Math.min(video.duration, video.seekable.end(video.seekable.length - 1));
+            if (end >= video.duration - 0.5 && video.currentTime < end - 0.2) {
+                try { video.currentTime = Math.max(video.currentTime, end - 0.1); state.sought = true; } catch (_) {}
             }
         }
     }
 
-    const observer = new MutationObserver((mutations) => {
-        for (const mutation of mutations) {
-            for (const added of mutation.addedNodes) {
-                if (!isDomElement(added)) continue;
-                if (siteEnabled) scanForVideoAds(added);
-            }
-            if (mutation.type === 'characterData' && mutation.target.parentElement) {
-                if (siteEnabled) scanForVideoAds(mutation.target.parentElement);
-            }
+    function mediaEvent(event) {
+        const video = event.target;
+        if (!(video instanceof HTMLVideoElement)) return;
+        videos.add(video);
+        if (['loadstart', 'emptied', 'ended'].includes(event.type)) {
+            if (suppressed.has(video) || skipPending.has(video)) waitingForContent.add(video);
+            skipPending.delete(video);
+            restore(video);
         }
-    });
+        schedule();
+    }
 
-    if (document.documentElement) {
-        observer.observe(document.documentElement, {
-            childList: true,
-            subtree: true,
-            characterData: true,
+    const mediaEvents = ['play', 'playing', 'pause', 'loadedmetadata', 'durationchange', 'loadstart', 'emptied', 'ended'];
+    function watch(root) {
+        if (roots.has(root)) return;
+        const observer = new MutationObserver(records => {
+            for (const record of records) {
+                for (const node of record.addedNodes) if (node.nodeType === Node.ELEMENT_NODE && node.isConnected) discover(node);
+                if (record.target.nodeType === Node.ELEMENT_NODE && record.target.shadowRoot) discover(record.target.shadowRoot);
+            }
+            if (records.some(record => record.removedNodes.length)) prune();
+            if (videos.size) schedule();
         });
+        observer.observe(root, { subtree: true, childList: true, characterData: true, attributes: true,
+            attributeFilter: ['class', 'style', 'hidden', 'disabled', 'aria-disabled', 'aria-label', 'src', 'data-ad-playing'] });
+        for (const type of mediaEvents) root.addEventListener(type, mediaEvent, true);
+        roots.set(root, observer);
     }
 
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', () => scanForVideoAds(document), { once: true });
-    } else {
-        scanForVideoAds(document);
+    function discover(root) {
+        if (root instanceof ShadowRoot) {
+            if (roots.has(root)) return;
+            watch(root);
+        }
+        function visit(node) {
+            if (node instanceof HTMLVideoElement) videos.add(node);
+            if (node.shadowRoot) discover(node.shadowRoot);
+        }
+        if (root.nodeType === Node.ELEMENT_NODE) visit(root);
+        const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT);
+        for (let node = walker.nextNode(); node; node = walker.nextNode()) visit(node);
     }
 
-    sweepTimer = setInterval(() => {
-        if (!siteEnabled) return;
-        if (!hasMeaningfulMedia(document)) return;
-        scanForVideoAds(document);
-        releaseFinishedPlayers();
-    }, 500);
+    function unwatch(root, observer) {
+        observer.disconnect();
+        for (const type of mediaEvents) root.removeEventListener(type, mediaEvent, true);
+        roots.delete(root);
+    }
+
+    function prune() {
+        for (const [root, observer] of roots) if (root instanceof ShadowRoot && !root.host.isConnected) unwatch(root, observer);
+        for (const video of videos) if (!video.isConnected) { restore(video); videos.delete(video); }
+    }
+
+    function scan() {
+        timer = 0;
+        if (!enabled || suspended) return;
+        prune();
+        let playing = false;
+        for (const video of videos) {
+            if (!video.isConnected) { restore(video); videos.delete(video); continue; }
+            const state = suppressed.get(video);
+            if (state && state.source !== (video.currentSrc || video.src)) {
+                restore(video); waitingForContent.add(video);
+            }
+            const signal = visible(video) ? signals(scopeFor(video), video) : { ad: false, skip: null };
+            if (!signal.ad) {
+                restore(video);
+                waitingForContent.delete(video);
+                skipPending.delete(video);
+            }
+            if (video.paused || video.ended) { restore(video); continue; }
+            playing = true;
+            if (!signal.ad) continue;
+            if (signal.skip && performance.now() - (clicked.get(signal.skip) ?? -Infinity) > 1000) {
+                clicked.set(signal.skip, performance.now());
+                skipPending.add(video);
+                signal.skip.click();
+                // The click may synchronously switch to the actual content.
+                continue;
+            }
+            if (!waitingForContent.has(video)) suppress(video);
+        }
+        if (playing) schedule(document.hidden ? 1500 : 400);
+    }
+
+    function schedule(delay = 100) {
+        if (!enabled || suspended) return;
+        const next = performance.now() + delay;
+        if (timer && dueAt <= next) return;
+        clearTimeout(timer);
+        dueAt = next;
+        timer = setTimeout(scan, delay);
+    }
+
+    function stop() {
+        clearTimeout(timer);
+        timer = 0;
+        for (const [root, observer] of roots) unwatch(root, observer);
+        for (const video of suppressed.keys()) restore(video);
+        videos.clear();
+    }
+
+    function start() {
+        if (!enabled || suspended) return;
+        watch(document);
+        discover(document);
+        schedule(0);
+    }
+
+    function configure(disabledSites) {
+        const next = !disabledSites.includes(site) && !disabledSites.includes(location.hostname);
+        if (enabled === next) return;
+        enabled = next;
+        if (enabled) start(); else stop();
+    }
+    chrome.storage.onChanged.addListener((changes, area) => {
+        if (area !== 'local' || !changes.disabledSites) return;
+        revision++;
+        configure(changes.disabledSites.newValue || []);
+    });
+    async function initialize() {
+        const before = revision;
+        const { disabledSites = [] } = await chrome.storage.local.get('disabledSites');
+        if (before === revision) configure(disabledSites);
+    }
+    initialize().catch(console.error);
+    document.addEventListener('DOMContentLoaded', () => { if (enabled) { discover(document); schedule(0); } }, { once: true });
+    document.addEventListener('visibilitychange', () => schedule(0));
+    window.addEventListener('pagehide', () => { suspended = true; stop(); });
+    window.addEventListener('pageshow', () => { suspended = false; start(); });
 })();
