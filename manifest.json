@@ -27,39 +27,102 @@
         "storage",
         "tabs"
     ],
-    "host_permissions": ["<all_urls>"],
+    "host_permissions": [
+        "<all_urls>"
+    ],
     "content_scripts": [
         {
-            "css": ["cosmetic.css"],
-            "matches": ["http://*/*", "https://*/*"],
+            "js": [
+                "popup-guard.js"
+            ],
+            "matches": [
+                "http://*/*",
+                "https://*/*"
+            ],
+            "run_at": "document_start",
+            "world": "MAIN",
+            "all_frames": true,
+            "match_about_blank": true
+        },
+        {
+            "js": [
+                "popup-settings.js"
+            ],
+            "matches": [
+                "http://*/*",
+                "https://*/*"
+            ],
+            "run_at": "document_start",
+            "all_frames": true,
+            "match_about_blank": true
+        },
+        {
+            "js": [
+                "element-rules.js"
+            ],
+            "matches": [
+                "http://*/*",
+                "https://*/*"
+            ],
             "run_at": "document_start"
         },
         {
-            "js": ["content-blocker.js"],
-            "matches": ["http://*/*", "https://*/*"],
+            "css": [
+                "cosmetic.css"
+            ],
+            "matches": [
+                "http://*/*",
+                "https://*/*"
+            ],
             "run_at": "document_start"
         },
         {
-            "js": ["youtube-main.js"],
-            "matches": ["*://*.youtube.com/*"],
+            "js": [
+                "content-blocker.js"
+            ],
+            "matches": [
+                "http://*/*",
+                "https://*/*"
+            ],
+            "run_at": "document_start"
+        },
+        {
+            "js": [
+                "youtube-main.js"
+            ],
+            "matches": [
+                "*://*.youtube.com/*"
+            ],
             "run_at": "document_start",
             "world": "MAIN"
         },
         {
-            "js": ["youtube-blocker.js"],
-            "matches": ["*://*.youtube.com/*"],
+            "js": [
+                "youtube-blocker.js"
+            ],
+            "matches": [
+                "*://*.youtube.com/*"
+            ],
             "run_at": "document_start"
         },
         {
-            "js": ["spotify-ads.js"],
-            "matches": ["*://open.spotify.com/*"],
+            "js": [
+                "spotify-ads.js"
+            ],
+            "matches": [
+                "*://open.spotify.com/*"
+            ],
             "run_at": "document_start",
             "world": "MAIN"
         }
     ],
     "declarative_net_request": {
         "rule_resources": [
-            { "id": "adzooka-rules", "enabled": true, "path": "rules.json" }
+            {
+                "id": "adzooka-rules",
+                "enabled": true,
+                "path": "rules.json"
+            }
         ]
     }
 }
