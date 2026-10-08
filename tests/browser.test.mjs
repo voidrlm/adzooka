@@ -110,7 +110,7 @@ after(async () => {
         const exited = new Promise(resolve => browser.once('exit', resolve));
         browser.kill(); await exited;
     }
-    if (profile) await rm(profile, { recursive: true, force: true });
+    if (profile) await rm(profile, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
 });
 
 test('exact selectors handle duplicate classes, escaped IDs, lazy images and iframe containers', async () => {
@@ -229,4 +229,68 @@ test('popup toggle updates live, respects site pause, and preserves same-window 
     assert.equal(await evaluate('window.open("/login")'), 'native-result');
     await evaluate('chrome.storage.local.set({disabledSites:[]})');
     assert.equal(await evaluate('window.open("/login")'), null);
+});
+
+test('important inline display is blocked and restored without overwriting other inline styles', async () => {
+    await setup('<div id="ad" style="display:flex!important;color:red">ad</div>');
+    await evaluate('chrome.storage.local.set({blockedSelectors:{[location.hostname]:["#ad"]}})');
+    assert.equal(await evaluate('getComputedStyle(document.querySelector("#ad")).display'), 'none');
+    await evaluate('document.querySelector("#ad").style.color="blue"');
+    await delay(120);
+    await evaluate('chrome.storage.local.set({blockedSelectors:{}})');
+    assert.equal(await evaluate('getComputedStyle(document.querySelector("#ad")).display'), 'flex');
+    assert.equal(await evaluate('document.querySelector("#ad").style.getPropertyPriority("display")'), 'important');
+    assert.equal(await evaluate('document.querySelector("#ad").style.color'), 'blue');
+});
+
+test('hover on a large page uses bounded geometry reads', async () => {
+    await setup('<div id="target" style="position:fixed;left:20px;top:20px;width:150px;height:100px;z-index:100;background:red"></div>');
+    await evaluate(`const fragment=document.createDocumentFragment();
+        for(let i=0;i<10000;i++) fragment.appendChild(document.createElement('span'));
+        document.body.appendChild(fragment);
+        window.rectReads=0; const original=Element.prototype.getBoundingClientRect;
+        Element.prototype.getBoundingClientRect=function(){rectReads++;return original.call(this)};`);
+    await inject('content-picker.js');
+    await command('Input.dispatchMouseEvent', {type:'mouseMoved',x:50,y:50});
+    await delay(40);
+    assert.equal(await evaluate('pickerRoot.querySelector(".selector").textContent'), 'div#target');
+    assert.ok(await evaluate('rectReads') < 10);
+    await panelAction('close');
+});
+
+test('popup controls persist settings, reflect site pause and report picker startup errors', async () => {
+    await setup();
+    const html = await readFile(new URL('../popup.html', import.meta.url), 'utf8');
+    await evaluate(`document.body.innerHTML=${JSON.stringify(html.match(/<body>([\s\S]*?)<\/body>/)[1])};
+        chrome.tabs={ query:async()=>[{id:1,url:'https://example.com/page'}] };
+        chrome.runtime.sendMessage=async()=>({ok:false,error:'Cannot access this page'});
+        window.close=()=>{window.didClose=true};`);
+    await inject('popup.js');
+    await evaluate('document.querySelector("#popup-toggle").click()');
+    assert.equal(await evaluate('store.popupBlockingEnabled'), false);
+    await evaluate('chrome.storage.local.set({popupBlockingEnabled:true, disabledSites:["example.com"]})');
+    assert.equal(await evaluate('document.querySelector("#popup-toggle").checked'), true);
+    assert.equal(await evaluate('document.querySelector("#picker-btn").disabled'), true);
+    await evaluate('chrome.storage.local.set({disabledSites:[]})');
+    await evaluate('document.querySelector("#picker-btn").click()');
+    assert.match(await evaluate('document.querySelector("#notice").textContent'), /Cannot access/);
+    assert.equal(await evaluate('!!window.didClose'), false);
+});
+
+test('popup settings cross the isolated-world boundary regardless of injection order', async () => {
+    await setup();
+    await evaluate('window.open=function(){return "native-result"}');
+    const { frameTree } = await command('Page.getFrameTree');
+    const { executionContextId } = await command('Page.createIsolatedWorld', { frameId: frameTree.frame.id, worldName: 'adzooka-test' });
+    const isolated = async expression => {
+        const response = await command('Runtime.evaluate', {expression,contextId:executionContextId,awaitPromise:true,returnByValue:true});
+        if(response.exceptionDetails) throw new Error(response.exceptionDetails.text);
+        return response.result.value;
+    };
+    await isolated(`window.changeSetting=null;window.chrome={storage:{local:{get:async()=>({popupBlockingEnabled:true})},onChanged:{addListener:fn=>window.changeSetting=fn}}}`);
+    await isolated(await readFile(new URL('../popup-settings.js', import.meta.url), 'utf8'));
+    await inject('popup-guard.js');
+    assert.equal(await evaluate('window.open("/test")'), null);
+    await isolated('changeSetting({popupBlockingEnabled:{newValue:false}},"local")');
+    assert.equal(await evaluate('window.open("/test")'), 'native-result');
 });

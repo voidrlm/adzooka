@@ -4,6 +4,7 @@
     const SHADOW_PREFIX = 'adzooka-shadow:';
     const FRAME_PREFIX = 'adzooka-frame-cluster:';
     const styles = new Map();
+    let inlineOverrides = new Map();
     let rules = [];
     let enabled = true;
     let timer = 0;
@@ -96,6 +97,33 @@
         return style;
     }
 
+    function applyInlineOverrides(groups) {
+        const next = new Map();
+        for (const [root, selectors] of groups) for (const selector of selectors) {
+            try {
+                for (const node of root.querySelectorAll(selector)) {
+                    if (!node.style) continue;
+                    const previous = inlineOverrides.get(node);
+                    const value = node.style.getPropertyValue('display');
+                    const priority = node.style.getPropertyPriority('display');
+                    if (previous && value === 'none' && priority === 'important') next.set(node, previous);
+                    else if (value !== 'none' && priority === 'important') {
+                        next.set(node, { value, priority });
+                        node.style.setProperty('display', 'none', 'important');
+                    }
+                }
+            } catch (_) {}
+        }
+        for (const [node, previous] of inlineOverrides) {
+            if (!next.has(node) && node.style.getPropertyValue('display') === 'none' &&
+                node.style.getPropertyPriority('display') === 'important') {
+                node.style.setProperty('display', previous.value, previous.priority);
+            }
+        }
+        // Keep only current matches; removed subtrees are released on the next batch.
+        inlineOverrides = next;
+    }
+
     function refresh() {
         clearTimeout(timer);
         timer = 0;
@@ -120,15 +148,18 @@
             entry?.style.remove();
             styles.set(root, { key, style: createStyle(root, selectors) });
         }
+        applyInlineOverrides(groups);
         const dynamic = enabled && rules.some(rule => rule.startsWith(SHADOW_PREFIX) || rule.startsWith(FRAME_PREFIX));
         clearTimeout(retryTimer);
-        if (dynamic) {
+        if (dynamic || inlineOverrides.size) {
             observer ||= new MutationObserver(schedule);
-            observer.observe(document, { childList: true, subtree: true });
-            for (const root of groups.keys()) if (root !== document) observer.observe(root, { childList: true, subtree: true });
+            const watch = { childList: true, subtree: true };
+            if (inlineOverrides.size) Object.assign(watch, { attributes: true, attributeFilter: ['style', 'class', 'id'] });
+            observer.observe(document, watch);
+            for (const root of groups.keys()) if (root !== document) observer.observe(root, watch);
             // attachShadow() itself produces no mutation on the host. Resolve only saved
             // paths, never scan the DOM, and release replaced roots on every refresh.
-            retryTimer = setTimeout(refresh, document.hidden ? 5000 : 1000);
+            if (dynamic) retryTimer = setTimeout(refresh, document.hidden ? 5000 : 1000);
         }
     }
 
